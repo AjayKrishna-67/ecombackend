@@ -1,0 +1,46 @@
+node_modules
+dist
+!dist/compile-admin-ui.js
+!dist/vendure-config.js
+!dist/smsService.js 
+static/assets
+static/email/test-emails
+admin-ui/.angular/cache
+.env
+docs
+.cursor
+.specify
+specs
+.claude
+tsconfig.e2e.json
+.groupedtimelineinclude
+admin-ui/
+helm/vendure-stack/values-local-secrets.yaml
+
+.agents
+skills-lock.json
+.gstack/
+db-backups/
+audit-out.txt
+dump.rdb
+src/assets/*
+# Fonts the WhatsApp invoice PDF needs for Tamil / Malayalam item names.
+!src/assets/fonts/
+
+# Local Claude rules (personal, not team convention)
+CLAUDE.local.md
+memurai-log.txt
+
+# Goods Transfer app build output
+goods-transfer-pwa/dist/
+
+coverage
+# Test report output at the repo root only. A bare `reports` also matched
+# src/plugins/Reports (git ignores case on macOS), hiding new files there.
+/reports
+__data__
+test-results
+playwright-report
+
+# graphify knowledge-graph output (local, regenerable)
+graphify-out/

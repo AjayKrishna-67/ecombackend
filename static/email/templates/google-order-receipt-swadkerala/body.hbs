@@ -1,0 +1,138 @@
+{{> header title="Order Receipt - Swad Kerala" brand=brand }}
+
+<mj-raw>
+    <style type="text/css">
+    .callout {
+        background-color: {{ brand.primaryColor }};
+        padding: 15px 0;
+    }
+    ul.address {
+        list-style-type: none;
+        padding: 0;
+    }
+    tr.order-row td {
+        border-bottom: 1px dashed #eee;
+    }
+    tr.order-row td:last-child {
+        text-align: center;
+    }
+    tr.total-row {
+        font-weight: bold;
+    }
+    .bg-off-white {
+        background-color: #f5f5f5;
+    }
+    </style>
+</mj-raw>
+
+<mj-section background-color="{{ brand.backgroundColor }}">
+    <mj-column>
+        <mj-text>
+            Dear {{ order.customer.firstName }} {{ order.customer.lastName }},
+        </mj-text>
+        <mj-text>
+            Thank you for your order! Here is your receipt.
+        </mj-text>
+    </mj-column>
+</mj-section>
+
+
+<mj-section css-class="callout">
+    <mj-column>
+        <mj-text ><strong>Order Code</strong></mj-text>
+        <mj-text >{{ order.code }}</mj-text>
+    </mj-column>
+    <mj-column>
+        <mj-text ><strong>Order Date</strong></mj-text>
+        <mj-text >{{ formatDate order.orderPlacedAt }}</mj-text>
+    </mj-column>
+    <mj-column>
+        <mj-text ><strong>Total Price</strong></mj-text>
+        <mj-text >₹{{ formatMoney order.totalWithTax }}</mj-text>
+    </mj-column>
+</mj-section>
+
+
+<mj-section background-color="{{ brand.backgroundColor }}">
+    <mj-column>
+        <mj-text>
+            {{#with order.shippingAddress }}
+                <h3>Shipping To: {{ fullName }}</h3>
+                <ul class="address">
+                    {{#if company}}<li>{{ company }}</li>{{/if}}<br/>
+                    {{#if streetLine1}}<li>{{ streetLine1 }}</li>{{/if}}<br/>
+                    {{#if streetLine2}}<li>{{ streetLine2 }}</li>{{/if}}<br/>
+                    {{#if city}}<li>{{ city }}</li>{{/if}}<br/>
+                    {{#if postalCode}}<li>{{ postalCode }}</li>{{/if}}<br/>
+                    {{#if country}}<li>{{ country }}</li>{{/if}}<br/>
+                    {{#if phoneNumber}}<li>{{ phoneNumber }}</li>{{/if}}
+                </ul>
+            {{/with}}
+        </mj-text>
+    </mj-column>
+</mj-section>
+
+<mj-section background-color="{{ brand.backgroundColor }}">
+    <mj-column>
+        <mj-text>
+            <h3>Order Summary:</h3>
+        </mj-text>
+        <mj-table cellpadding="6px">
+            {{#each order.lines }}
+                <tr class="order-row">
+                    <td colspan="2">{{ quantity }} x {{ productVariant.name }}</td>
+                    <td>₹{{ formatMoney discountedLinePriceWithTax }}</td>
+                </tr>
+            {{/each}}
+            {{#each order.discounts }}
+                <tr class="order-row">
+                    <td colspan="2">
+                        {{ description }}
+                    </td>
+                    <td>-₹{{ formatMoney amount }}</td>
+                </tr>
+            {{/each}}
+            <tr class="order-row">
+                <td colspan="2">Sub-total:</td>
+                <td>₹{{ formatMoney order.subTotalWithTax }}</td>
+            </tr>
+            {{#each order.shippingLines }}
+            <tr class="order-row">
+                <td colspan="2">Shipping:</td>
+                <td>₹{{ formatMoney priceWithTax }}</td>
+            </tr>
+            {{/each}}
+            <tr class="order-row total-row">
+                <td colspan="2">Total:</td>
+                <td>₹{{ formatMoney order.totalWithTax }}</td>
+            </tr>
+        </mj-table>
+    </mj-column>
+</mj-section>
+
+<mj-section background-color="{{ brand.backgroundColor }}">
+    <mj-column>
+        <mj-text color="#525252">
+            <strong>Payment Information:</strong><br/>
+            {{#each order.payments }}
+                Payment Method: {{ method }}<br/>
+                Amount: ₹{{ formatMoney amount }}
+            {{/each}}
+        </mj-text>
+    </mj-column>
+</mj-section>
+
+<mj-section background-color="{{ brand.backgroundColor }}">
+    <mj-column>
+        <mj-text color="#525252">
+            Thank you for shopping with {{ brand.name }}!
+        </mj-text>
+        <mj-text color="#525252" font-size="12px">
+            You can track your order status by logging into your account.
+        </mj-text>
+    </mj-column>
+</mj-section>
+
+{{> footer brand=brand }}
+
+

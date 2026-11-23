@@ -1,0 +1,9 @@
+{
+  "state": {
+    "cancellation-requested": "Cancellation Requested",
+    "outfor-delivery": "Out for Delivery"
+  },
+  "common": {
+    "login-title": "Welcome to AVS Ecom Hub"
+  }
+}

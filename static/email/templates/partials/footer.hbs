@@ -1,0 +1,16 @@
+<!--suppress ALL -->
+<mj-section background-color="{{#if brand}}{{brand.primaryColor}}{{else}}#92400e{{/if}}" padding="30px 20px">
+    <mj-column width="100%">
+        <mj-image src="{{#if brand}}{{brand.logoUrl}}{{else}}https://s3.ap-south-1.amazonaws.com/cdn.kaaikani.co.in/southmithai.png{{/if}}" 
+                 alt="{{#if brand}}{{#if brand.logoAlt}}{{brand.logoAlt}}{{else}}{{brand.name}} Logo{{/if}}{{else}}South Mithai Logo{{/if}}" 
+                 width="{{#if brand}}{{brand.logoWidth}}{{else}}120px{{/if}}" 
+                 align="center" 
+                 padding="0 0 15px 0" />
+        <mj-text align="center" color="{{#if brand}}{{brand.accentColor}}{{else}}#fbbf24{{/if}}" font-size="13px" padding-top="10px">
+            Thank you for choosing {{#if brand}}{{brand.name}}{{else}}South Mithai{{/if}}<br/>
+            For support, contact us at: <a href="mailto:{{#if brand}}{{brand.supportEmail}}{{else}}support@southmithai.com{{/if}}">{{#if brand}}{{brand.supportEmail}}{{else}}support@southmithai.com{{/if}}</a>
+        </mj-text>
+    </mj-column>
+</mj-section>
+</mj-body>
+</mjml>

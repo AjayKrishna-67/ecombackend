@@ -1,0 +1,37 @@
+# Cursor ignore file
+# Add patterns for files/directories that Cursor should ignore
+
+# Compiled admin UI files (auto-generated)
+admin-ui/
+
+# Node modules
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Cache directories
+.angular/
+.cache/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Environment files (optional - uncomment if you want to ignore)
+# .env
+# .env.local
+
+# Temporary files
+*.tmp
+*.temp
+

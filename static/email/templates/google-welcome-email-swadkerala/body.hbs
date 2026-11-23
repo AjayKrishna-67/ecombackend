@@ -1,0 +1,41 @@
+{{> header title="Welcome to Swad Kerala!" brand=brand }}
+
+<mj-section background-color="{{ brand.backgroundColor }}">
+    <mj-column>
+        <mj-text color="#525252" font-size="20px" font-weight="bold">
+            Welcome, {{ customer.firstName }}!
+        </mj-text>
+        
+        <mj-text color="#525252">
+            Thank you for joining {{ brand.name }}! Your journey into authentic Kerala flavours starts now.
+        </mj-text>
+
+        <mj-text color="#525252">
+            Your account has been successfully created using Google Sign-In. You can now:
+        </mj-text>
+
+        <mj-text color="#525252">
+            <ul>
+                <li>Discover handpicked Kerala spices and signature blends</li><br/>
+                <li>Reorder your favourites with a single tap</li><br/>
+                <li>Track deliveries straight to your kitchen</li><br/>
+                <li>Unlock member-only spice box launches and offers</li>
+            </ul>
+        </mj-text>
+
+        <mj-button font-family="Helvetica"
+                   background-color="{{ brand.ctaColor }}"
+                   color="white"
+                   href="{{ shopUrl }}">
+            Explore Spices
+        </mj-button>
+
+        <mj-text color="#525252">
+            Have a question? Our spice experts are here to help at any time.
+        </mj-text>
+    </mj-column>
+</mj-section>
+
+{{> footer brand=brand }}
+
+

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Search Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f6f8;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .search-container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        h3 {
+            margin-top: 0;
+            color: #333;
+            font-size: 18px;
+        }
+
+        /* Search Box Styling */
+        .input-group {
+            position: relative;
+            display: flex;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .input-group:focus-within {
+            border-color: #28a745;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+        }
+
+        input {
+            flex: 1;
+            padding: 12px 15px;
+            font-size: 16px;
+            border: none;
+            outline: none;
+        }
+
+        button {
+            background: #fff;
+            border: none;
+            padding: 0 15px;
+            cursor: pointer;
+            color: #666;
+            font-weight: 500;
+            border-left: 1px solid #eee;
+        }
+
+        button:hover {
+            color: #28a745;
+            background: #f9f9f9;
+        }
+
+        /* Results List Styling (The Format You Wanted) */
+        #results {
+            margin-top: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            display: none; /* Hidden by default */
+        }
+
+        #results.has-data {
+            display: block;
+        }
+
+        .result-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .icon-box {
+            margin-right: 12px;
+            color: #999;
+            font-size: 18px;
+            margin-top: 2px;
+        }
+
+        .details {
+            flex: 1;
+        }
+
+        .pincode-text {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 2px;
+        }
+
+        .address-text {
+            font-size: 13px;
+            color: #777;
+            line-height: 1.4;
+        }
+
+        .loading-text, .error-text {
+            padding: 15px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .error-text {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="search-container">
+        <h3>Choose delivery location</h3>
+        
+        <div class="input-group">
+            <input type="text" id="searchInput" placeholder="Enter pincode (e.g. 625001)">
+            <button onclick="performSearch()" id="searchBtn">🔍</button>
+        </div>
+
+        <div id="results">
+            </div>
+    </div>
+
+    <script>
+        // Allow searching by pressing "Enter" key
+        document.getElementById("searchInput").addEventListener("keyup", function(event) {
+            if (event.key === "Enter") {
+                performSearch();
+            }
+        });
+
+        async function performSearch() {
+            const input = document.getElementById('searchInput').value.trim();
+            const resultsDiv = document.getElementById('results');
+            
+            // Clear previous results
+            resultsDiv.innerHTML = '';
+            resultsDiv.classList.add('has-data');
+
+            // 1. Basic Validation
+            if (input.length < 3) {
+                resultsDiv.innerHTML = '<div class="error-text">Please enter at least 3 characters</div>';
+                return;
+            }
+
+            // 2. Determine Search Type
+            const isPincode = /^\d{6}$/.test(input);
+            const apiUrl = isPincode 
+                ? `https://api.postalpincode.in/pincode/${input}` 
+                : `https://api.postalpincode.in/postoffice/${input}`;
+
+            // 3. UI Loading State
+            resultsDiv.innerHTML = '<div class="loading-text">Searching...</div>';
+
+            try {
+                // 4. Call API
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                // 5. Render Results
+                if (data[0].Status === "Success") {
+                    const postOffices = data[0].PostOffice;
+                    let html = '';
+                    
+                    postOffices.forEach(po => {
+                        // Create the address string: Area, District, State
+                        const address = `${po.Name}, ${po.District}, ${po.State}, India`;
+                        
+                        // Use Pincode as the main title if searching by name, or if searching by code
+                        const mainTitle = isPincode ? po.Name : po.Pincode;
+                        const subTitle = isPincode ? `${po.District}, ${po.State}` : address;
+                        
+                        // BUT your requested format specifically highlights the PINCODE at the top
+                        // So let's force that format:
+                        
+                        html += `
+                            <div class="result-item" onclick="selectLocation('${po.Pincode}', '${po.Name}')">
+                                <div class="icon-box">📍</div>
+                                <div class="details">
+                                    <div class="pincode-text">${po.Pincode}</div>
+                                    <div class="address-text">${po.Name}, ${po.District}, ${po.State}, India</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    resultsDiv.innerHTML = html;
+                } else {
+                    resultsDiv.innerHTML = `<div class="error-text">No results found for "${input}"</div>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error-text">Connection error. Please try again.</div>`;
+            }
+        }
+
+        function selectLocation(pincode, area) {
+            alert(`You selected: ${area} (${pincode})`);
+            document.getElementById('searchInput').value = pincode;
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('results').classList.remove('has-data');
+        }
+    </script>
+
+</body>
+</html>

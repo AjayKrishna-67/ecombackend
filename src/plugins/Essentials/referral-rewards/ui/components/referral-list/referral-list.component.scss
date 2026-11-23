@@ -1,0 +1,95 @@
+.referral-section {
+    margin-top: 1rem;
+}
+
+.referral-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+
+    h4 {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0;
+    }
+}
+
+.referral-icon {
+    color: var(--color-primary-500);
+}
+
+.referred-by-card {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    background: #f0f7ff;
+    border: 1px solid #bbdefb;
+    border-radius: 6px;
+    font-size: 0.95em;
+}
+
+.points-label {
+    margin-left: auto;
+    font-weight: 600;
+    color: #1565c0;
+}
+
+.badge {
+    background: var(--color-primary-500);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75em;
+}
+
+.referral-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-text-300);
+}
+
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 500;
+}
+
+.status-registered {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.status-eligible {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.status-claimed {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.status-expired {
+    background: #fce4ec;
+    color: #c62828;
+}
+
+.scratched-yes {
+    color: #2e7d32;
+    font-weight: 500;
+}
+
+.scratched-no {
+    color: #e65100;
+    font-weight: 500;
+}

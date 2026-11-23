@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Razorpay Test Console</title>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1c2330; --muted: #5d6778; --line: #dfe3ea;
+    --accent: #2b59c3; --pass: #1f7a3d; --pass-bg: #e3f4e8; --fail: #b3261e; --fail-bg: #fbe5e3;
+    --warn: #8a5a00; --warn-bg: #fff3d6; --run: #2b59c3; --run-bg: #e5ecfb; --code: #f1f3f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --panel: #1b2029; --ink: #e6e9ef; --muted: #9aa3b2; --line: #2c3340;
+      --accent: #7aa2ff; --pass: #6fd08f; --pass-bg: #173323; --fail: #ff8a80; --fail-bg: #3a1c1a;
+      --warn: #ffcf66; --warn-bg: #3a2f12; --run: #7aa2ff; --run-bg: #1d2a47; --code: #232a35;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0 8px 0 0; }
+  .badge { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .ok { color: var(--pass); background: var(--pass-bg); }
+  .bad { color: var(--fail); background: var(--fail-bg); }
+  .warn { color: var(--warn); background: var(--warn-bg); }
+  .run { color: var(--run); background: var(--run-bg); }
+  main { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; padding: 16px 20px; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; padding: 12px 16px; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+  section h2 { font-size: 15px; margin: 0 0 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 12px; }
+  label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+  input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+  textarea { font-family: ui-monospace, Menlo, monospace; font-size: 12px; min-height: 60px; }
+  button { font: inherit; font-weight: 600; border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  .note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+  .callout { border-radius: 8px; padding: 10px 12px; margin: 8px 0; font-size: 13px; }
+  .scenario { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+  .scenario-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+  .scenario h3 { font-size: 14px; margin: 0; }
+  .scenario p { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; }
+  .checks { list-style: none; padding: 0; margin: 8px 0 0; font-size: 12.5px; }
+  .checks li { padding: 2px 0; }
+  .checks li.pass::before { content: "✓ "; color: var(--pass); font-weight: 700; }
+  .checks li.fail::before { content: "✗ "; color: var(--fail); font-weight: 700; }
+  .checks li.info::before { content: "• "; color: var(--muted); }
+  .checks li.action { color: var(--warn); font-weight: 600; }
+  .checks li.action::before { content: "→ "; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+  th { color: var(--muted); font-weight: 600; }
+  code, pre { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: var(--code); border-radius: 4px; }
+  code { padding: 1px 4px; }
+  pre { padding: 8px; margin: 4px 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
+  #log { max-height: 520px; overflow: auto; font-size: 12px; }
+  #log details { border-bottom: 1px solid var(--line); padding: 3px 0; }
+  #log summary { cursor: pointer; }
+  .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .state { font-size: 16px; font-weight: 700; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Razorpay Test Console</h1>
+  <span id="msgBadge" class="badge warn">messages: checking…</span>
+  <span id="keyBadge" class="badge warn">Razorpay key: not checked</span>
+  <span id="workerBadge" class="badge warn">worker: unknown</span>
+  <span class="note" id="targetNote"></span>
+</header>
+
+<main>
+<div>
+  <section>
+    <h2>1. Setup</h2>
+    <div class="callout warn">
+      Start everything with <code>bash static/test/razorpay-console/start.sh</code>. It switches SMS, WhatsApp, email and the order webhook
+      <b>off</b>, so a test order never messages a customer or the staff alert numbers. Use your own phone number below anyway.
+    </div>
+    <div class="grid">
+      <label>Admin username <input id="adminUser" autocomplete="username"></label>
+      <label>Admin password <input id="adminPass" type="password" autocomplete="current-password"></label>
+    </div>
+    <div class="row"><button class="primary" id="loginBtn">Log in & load channels</button><span id="loginStatus" class="note"></span></div>
+    <div class="grid" style="margin-top:10px">
+      <label>Channel <select id="channel"></select></label>
+      <label>Product variant <select id="variant"></select></label>
+      <label>Quantity <input id="qty" type="number" min="1" value="1"></label>
+      <label>Shipping method code (blank = first eligible) <input id="shippingCode" placeholder="optional"></label>
+    </div>
+    <div class="row"><button id="checkMethodBtn">Check Razorpay method of this channel</button><button id="scanBtn">Scan all channels for test keys</button><button id="loadVariantsBtn">Reload products</button></div>
+    <div id="methodInfo" class="note"></div>
+    <div id="scanInfo" class="note"></div>
+    <h2 style="margin-top:14px">Test customer (guest)</h2>
+    <div class="grid">
+      <label>Your phone number <input id="phone" placeholder="your own number" inputmode="tel"></label>
+      <label>Name <input id="fullName" value="Razorpay Console"></label>
+      <label>Street <input id="street" value="1 Test Street"></label>
+      <label>City <input id="city" value="Madurai"></label>
+      <label>Postal code <input id="postalCode" value="625001"></label>
+      <label>Country code <input id="countryCode" value="IN"></label>
+      <label>Checkout timeout (seconds, blank = none) <input id="checkoutTimeout" type="number" min="60" value="300"></label>
+    </div>
+    <p class="note">The email is generated per test (<code>rzp-console+…@example.com</code>) so guest checkout never collides with a real account.</p>
+    <details style="margin-top:8px"><summary class="note">Extra checkout steps this store needs (optional)</summary>
+      <p class="note">JSON list of <code>{"query": "...", "variables": {...}}</code>, run in the test customer's session after the shipping method is set (e.g. a delivery-slot mutation).</p>
+      <textarea id="extraSteps" placeholder='[]'></textarea>
+    </details>
+  </section>
+
+  <section>
+    <h2>2. Scenarios</h2>
+    <p class="note">Each one creates a fresh cart, drives it, then checks the result against Vendure (admin API) and the stored webhook events. Webhook tests need the worker running.
+      Razorpay test mode: pay with UPI <code>success@razorpay</code>, fail with <code>failure@razorpay</code>.</p>
+    <div class="row"><button id="stopBtn" disabled>Stop running scenario</button><span id="runStatus" class="note"></span></div>
+    <div id="scenarios" style="margin-top:10px"></div>
+  </section>
+</div>
+
+<div>
+  <section>
+    <h2>Order inspector</h2>
+    <div class="row"><input id="inspectId" placeholder="order id" style="width:110px"><button id="inspectBtn">Load</button>
+      <label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="autoRefresh"> auto-refresh</label></div>
+    <div id="inspector" class="note" style="margin-top:8px">No order yet.</div>
+  </section>
+  <section>
+    <h2>Log</h2>
+    <div class="row"><button id="clearLog">Clear</button></div>
+    <div id="log"></div>
+  </section>
+</div>
+</main>
+
+<script>
+'use strict';
+// ---------------------------------------------------------------- utilities
+const $ = sel => document.querySelector(sel);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const money = paise => (paise == null ? '—' : '₹' + (Number(paise) / 100).toFixed(2));
+const store = {
+  get(key, fallback) { try { const v = localStorage.getItem('rzpc.' + key); return v === null ? fallback : JSON.parse(v); } catch { return fallback; } },
+  set(key, value) { try { localStorage.setItem('rzpc.' + key, JSON.stringify(value)); } catch { /* storage unavailable */ } },
+};
+const PERSISTED = ['adminUser', 'qty', 'shippingCode', 'phone', 'fullName', 'street', 'city', 'postalCode', 'countryCode', 'checkoutTimeout', 'extraSteps'];
+
+const state = {
+  adminToken: null,
+  channelToken: null,
+  method: null,           // { keyId, isTest, webhookSecret, enabled }
+  lastPaid: null,         // { razorpayOrderId, razorpayPaymentId, razorpaySignature } from a successful checkout
+  running: false,
+  stopRequested: false,
+  inspectedOrderId: null,
+};
+
+function log(kind, title, detail) {
+  const time = new Date().toLocaleTimeString();
+  const el = document.createElement('details');
+  el.innerHTML = `<summary><span class="t">${time}</span> <b>${esc(kind)}</b> ${esc(title)}</summary>` +
+    (detail === undefined ? '' : `<pre>${esc(typeof detail === 'string' ? detail : JSON.stringify(detail, null, 2))}</pre>`);
+  $('#log').prepend(el);
+}
+
+class GqlError extends Error {
+  constructor(errors) { super(errors.map(e => e.message).join('; ')); this.errors = errors; }
+}
+
+/** One GraphQL call through the console's same-origin proxy. Keeps the session token Vendure returns. */
+async function gql(api, query, variables, { token, channelToken, quiet = false } = {}) {
+  const headers = { 'content-type': 'application/json' };
+  if (token) headers.authorization = 'Bearer ' + token;
+  if (channelToken) headers['vendure-token'] = channelToken;
+  const res = await fetch('/' + api, { method: 'POST', headers, body: JSON.stringify({ query, variables }) });
+  let body;
+  try { body = await res.json(); } catch { body = { errors: [{ message: `HTTP ${res.status} (is Vendure running?)` }] }; }
+  const opName = (query.match(/(query|mutation)\s*(\w+)?[^{]*{\s*(\w+)/) || [])[3] || 'graphql';
+  const safeVars = variables && variables.password ? { ...variables, password: '***' } : variables;
+  if (!quiet || body.errors) log(api, `${opName}${body.errors ? ' ✗' : ''}`, { variables: safeVars, response: body });
+  return { data: body.data, errors: body.errors, token: res.headers.get('vendure-auth-token') || token };
+}
+
+/** Admin call in the selected channel; pass channelToken: null for the default channel (it sees every order). */
+async function adminQ(query, variables, { channelToken = state.channelToken, quiet = false } = {}) {
+  const r = await gql('admin-api', query, variables, { token: state.adminToken, channelToken, quiet });
+  if (r.errors?.length) throw new GqlError(r.errors);
+  return r.data;
+}
+
+/** A shop customer session (guest). Each scenario uses fresh ones, like separate phones. */
+class ShopSession {
+  constructor(channelToken) { this.token = null; this.channelToken = channelToken; }
+  async q(query, variables) {
+    const r = await gql('shop-api', query, variables, { token: this.token, channelToken: this.channelToken });
+    if (r.token) this.token = r.token;
+    if (r.errors?.length) throw new GqlError(r.errors);
+    return r.data;
+  }
+}
+
+/** Throws with the GraphQL ErrorResult message when a union result is an error. */
+function unwrap(result, label) {
+  if (result && result.errorCode) throw new Error(`${label}: ${result.errorCode} ${result.message || result.paymentErrorMessage || ''}`);
+  return result;
+}
+
+async function hmacHex(secret, message) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Sends a webhook exactly as Razorpay would: raw JSON body, HMAC-SHA256 of it in x-razorpay-signature. */
+async function sendWebhook(event, payment, secret) {
+  const body = {
+    entity: 'event', account_id: 'acc_console', event, contains: ['payment'],
+    payload: { payment: { entity: { entity: 'payment', currency: 'INR', method: 'upi', ...payment } } },
+    created_at: Math.floor(Date.now() / 1000),
+  };
+  const raw = JSON.stringify(body);
+  const eventId = 'evt_console_' + Math.random().toString(36).slice(2, 12);
+  const res = await fetch('/shop-api/razorpay/webhook', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-razorpay-signature': await hmacHex(secret, raw), 'x-razorpay-event-id': eventId },
+    body: raw,
+  });
+  const reply = await res.json().catch(() => null);
+  log('webhook', `${event} → HTTP ${res.status}`, { eventId, reply, payload: body });
+  return { status: res.status, eventId };
+}
+
+async function webhookEvents(rzpOrderId) {
+  const res = await fetch('/console-api/webhook-events?rzpOrderId=' + encodeURIComponent(rzpOrderId));
+  const body = await res.json().catch(() => ({ events: [] }));
+  return body.events || [];
+}
+
+// ---------------------------------------------------------------- GraphQL documents
+const Q = {
+  login: `mutation Login($username: String!, $password: String!) { login(username: $username, password: $password) { ... on CurrentUser { id identifier } ... on ErrorResult { errorCode message } } }`,
+  channels: `query Channels { channels(options: { take: 100 }) { items { id code token } } }`,
+  methods: `query Methods { paymentMethods(options: { take: 100 }) { items { id code enabled handler { code args { name value } } } } }`,
+  products: `query Products { products(options: { take: 40 }) { items { name variants { id name sku priceWithTax stockLevel } } } }`,
+  order: `query Order($id: ID!) { order(id: $id) { id code state active totalWithTax customFields { razorpayOrderId razorpayPaymentId isPaymentWindowOpen }
+           payments { id state amount method transactionId errorMessage createdAt }
+           history(options: { take: 12, sort: { createdAt: DESC } }) { items { type createdAt data } } } }`,
+  orderByCode: `query OrderByCode($code: String!) { orders(options: { filter: { code: { eq: $code } }, take: 1 }) { items { id } } }`,
+  addItem: `mutation AddItem($id: ID!, $qty: Int!) { addItemToOrder(productVariantId: $id, quantity: $qty) { ... on Order { id code state totalWithTax } ... on ErrorResult { errorCode message } } }`,
+  setCustomer: `mutation SetCustomer($input: CreateCustomerInput!) { setCustomerForOrder(input: $input) { ... on Order { id } ... on ErrorResult { errorCode message } } }`,
+  setAddress: `mutation SetAddress($input: CreateAddressInput!) { setOrderShippingAddress(input: $input) { ... on Order { id } ... on ErrorResult { errorCode message } } }`,
+  eligible: `query Eligible { eligibleShippingMethods { id code name priceWithTax } }`,
+  setShipping: `mutation SetShipping($ids: [ID!]!) { setOrderShippingMethod(shippingMethodId: $ids) { ... on Order { id totalWithTax } ... on ErrorResult { errorCode message } } }`,
+  generate: `mutation Generate($id: ID!) { generateRazorpayOrderId(orderId: $id) { success razorpayOrderId amount currency keyId errorMessage } }`,
+  cancel: `mutation Cancel($id: ID!) { cancelRazorpayPayment(orderId: $id) { success reverted state errorMessage } }`,
+  status: `query Status($id: ID!) { getRazorpayOrderStatus(orderId: $id) { status attempts amountPaid history { id status amount method errorReason } } }`,
+  addPayment: `mutation AddPayment($input: PaymentInput!) { addPaymentToOrder(input: $input) {
+           ... on Order { id state payments { state amount transactionId } }
+           ... on PaymentDeclinedError { errorCode paymentErrorMessage }
+           ... on ErrorResult { errorCode message } } }`,
+};
+
+// ---------------------------------------------------------------- setup
+async function loadConfig() {
+  try {
+    const cfg = await (await fetch('/console-api/config')).json();
+    $('#targetNote').textContent = 'Vendure: ' + cfg.vendureUrl;
+    setBadge('#msgBadge', cfg.isMessagingOff ? 'ok' : 'bad', cfg.isMessagingOff ? 'messages: OFF ✓' : 'messages: NOT off — use start.sh');
+  } catch {
+    setBadge('#msgBadge', 'bad', 'console server not reachable');
+  }
+  if (!window.Razorpay) log('warn', 'Razorpay checkout.js did not load (offline?) — checkout scenarios will not work');
+}
+
+function setBadge(sel, cls, text) { const el = $(sel); el.className = 'badge ' + cls; el.textContent = text; }
+
+async function login() {
+  $('#loginStatus').textContent = 'logging in…';
+  try {
+    const r = await gql('admin-api', Q.login, { username: $('#adminUser').value, password: $('#adminPass').value });
+    unwrap(r.data?.login, 'login');
+    if (r.errors?.length) throw new GqlError(r.errors);
+    state.adminToken = r.token;
+    const { channels } = await adminQ(Q.channels);
+    state.channels = channels.items;
+    const select = $('#channel');
+    select.innerHTML = channels.items.map(c => `<option value="${esc(c.token)}">${esc(c.code)}</option>`).join('');
+    const saved = store.get('channelToken', null);
+    if (saved && channels.items.some(c => c.token === saved)) select.value = saved;
+    $('#loginStatus').textContent = `logged in, ${channels.items.length} channels`;
+    await onChannelChange();
+  } catch (e) {
+    $('#loginStatus').textContent = 'login failed: ' + e.message;
+  }
+}
+
+async function onChannelChange() {
+  state.channelToken = $('#channel').value;
+  store.set('channelToken', state.channelToken);
+  await Promise.all([checkMethod(), loadVariants()]);
+}
+
+/** Reads this channel's razorpay-payment config. Test keys only: a live key would charge real money. */
+async function checkMethod() {
+  state.method = null;
+  try {
+    const { paymentMethods } = await adminQ(Q.methods);
+    const methods = paymentMethods.items.filter(m => m.code === 'razorpay-payment' || m.handler.code === 'razorpay-payment');
+    if (!methods.length) throw new Error('no razorpay-payment method in this channel');
+    const method = methods.find(m => m.enabled) || methods[0];
+    const configArg = method.handler.args.find(a => a.name === 'config');
+    const config = configArg ? JSON.parse(configArg.value) : {};
+    const keyId = config.key_id || '';
+    state.method = { keyId, isTest: keyId.startsWith('rzp_test_'), webhookSecret: config.webhook_secret || '', enabled: method.enabled };
+    const secretNote = state.method.webhookSecret ? `webhook secret set (${state.method.webhookSecret.length} chars)` : 'NO webhook secret (webhook scenarios will fail the signature check)';
+    $('#methodInfo').innerHTML = `${methods.length > 1 ? `<b>${methods.length} Razorpay methods in this channel — using the enabled one.</b> ` : ''}` +
+      `Key <code>${esc(keyId.slice(0, 9))}…</code> · ${method.enabled ? 'enabled' : '<b>disabled</b>'} · ${esc(secretNote)}`;
+    if (state.method.isTest) {
+      setBadge('#keyBadge', 'ok', 'Razorpay: TEST key ✓');
+    } else {
+      setBadge('#keyBadge', 'bad', 'Razorpay: LIVE key — blocked');
+      $('#methodInfo').innerHTML += `<div class="callout bad">This channel's Razorpay method uses a <b>live</b> key: a payment here would take real money,
+        so every scenario is blocked. Fix (local only, production is untouched):
+        <ol style="margin:6px 0 0 18px;padding:0">
+          <li>Razorpay Dashboard → switch on <b>Test Mode</b> → Account &amp; Settings → API Keys → generate a <b>test</b> key (<code>rzp_test_…</code> + secret).</li>
+          <li>In your <b>local</b> admin (the Vendure URL at the top of this page + <code>/admin</code>) → Settings → Payment methods → this channel's Razorpay method → paste the test key id and secret.
+              Webhook secret: any text you like (this console signs its own webhooks with it).</li>
+          <li>Press "Check Razorpay method of this channel" again.</li>
+        </ol></div>`;
+    }
+  } catch (e) {
+    setBadge('#keyBadge', 'bad', 'Razorpay: not configured');
+    $('#methodInfo').textContent = 'Could not read the Razorpay method: ' + e.message;
+  }
+  renderScenarios();
+}
+
+/** Lists every channel's Razorpay key mode (test / live / none), so a channel already on test keys can be picked. */
+async function scanChannels() {
+  if (!state.channels?.length) { $('#scanInfo').textContent = 'Log in first.'; return; }
+  $('#scanInfo').textContent = 'Scanning…';
+  const rows = [];
+  for (const channel of state.channels) {
+    try {
+      const { paymentMethods } = await adminQ(Q.methods, {}, { channelToken: channel.token, quiet: true });
+      const methods = paymentMethods.items.filter(m => m.code === 'razorpay-payment' || m.handler.code === 'razorpay-payment');
+      if (!methods.length) { rows.push({ channel, mode: 'none', detail: 'no Razorpay method' }); continue; }
+      for (const m of methods) {
+        const arg = m.handler.args.find(a => a.name === 'config');
+        let config = {};
+        try { config = arg ? JSON.parse(arg.value) : {}; } catch { /* unreadable config */ }
+        const keyId = config.key_id || '';
+        const mode = keyId.startsWith('rzp_test_') ? 'TEST' : keyId.startsWith('rzp_live_') ? 'LIVE' : 'no key';
+        rows.push({ channel, mode, detail: `${m.enabled ? 'enabled' : 'disabled'} · webhook secret ${config.webhook_secret ? 'set' : 'missing'}` });
+      }
+    } catch (e) {
+      rows.push({ channel, mode: 'error', detail: e.message });
+    }
+  }
+  const hasTest = rows.some(r => r.mode === 'TEST');
+  $('#scanInfo').innerHTML = `<table style="margin-top:8px"><tr><th>channel</th><th>Razorpay key</th><th></th><th></th></tr>${rows.map(r =>
+    `<tr><td>${esc(r.channel.code)}</td><td><span class="badge ${r.mode === 'TEST' ? 'ok' : r.mode === 'LIVE' ? 'bad' : 'warn'}">${esc(r.mode)}</span></td><td>${esc(r.detail)}</td>
+     <td>${r.mode === 'TEST' ? `<button data-use="${esc(r.channel.token)}">use this channel</button>` : ''}</td></tr>`).join('')}</table>` +
+    (hasTest ? '' : '<p class="note"><b>No channel has a test key yet.</b> Put Razorpay test keys on one channel (steps in the red box above), then scan again.</p>');
+  document.querySelectorAll('[data-use]').forEach(b => b.addEventListener('click', async () => {
+    $('#channel').value = b.dataset.use;
+    await onChannelChange();
+  }));
+}
+
+async function loadVariants() {
+  try {
+    const session = new ShopSession(state.channelToken);
+    const { products } = await session.q(Q.products);
+    const options = products.items.flatMap(p => p.variants.map(v =>
+      `<option value="${esc(v.id)}">${esc(p.name)} — ${esc(v.name)} (${money(v.priceWithTax)}, ${esc(v.stockLevel)})</option>`));
+    $('#variant').innerHTML = options.join('') || '<option value="">no products in this channel</option>';
+    const saved = store.get('variantId', null);
+    if (saved && [...$('#variant').options].some(o => o.value === saved)) $('#variant').value = saved;
+  } catch (e) {
+    $('#variant').innerHTML = `<option value="">could not load products: ${esc(e.message)}</option>`;
+  }
+}
+
+// ---------------------------------------------------------------- shared steps
+/** Fresh guest cart → ArrangingPayment → Razorpay order. Mirrors what the app does when the customer taps Pay. */
+async function prepareCheckout(run) {
+  const session = new ShopSession(state.channelToken);
+  const variantId = $('#variant').value;
+  if (!variantId) throw new Error('pick a product variant first');
+  const added = unwrap((await session.q(Q.addItem, { id: variantId, qty: Number($('#qty').value) || 1 })).addItemToOrder, 'addItemToOrder');
+  run.info(`Cart ${added.code} (order id ${added.id}) created`);
+  inspect(added.id);
+  const phone = $('#phone').value.trim();
+  unwrap((await session.q(Q.setCustomer, { input: {
+    emailAddress: `rzp-console+${Date.now()}@example.com`, firstName: 'Razorpay', lastName: 'Console', phoneNumber: phone || undefined,
+  } })).setCustomerForOrder, 'setCustomerForOrder');
+  unwrap((await session.q(Q.setAddress, { input: {
+    fullName: $('#fullName').value, streetLine1: $('#street').value, city: $('#city').value,
+    postalCode: $('#postalCode').value, countryCode: $('#countryCode').value || 'IN', phoneNumber: phone || undefined,
+  } })).setOrderShippingAddress, 'setOrderShippingAddress');
+  const { eligibleShippingMethods } = await session.q(Q.eligible);
+  const wanted = $('#shippingCode').value.trim();
+  const shipping = eligibleShippingMethods.find(m => m.code === wanted) || eligibleShippingMethods[0];
+  if (!shipping) throw new Error('no eligible shipping method for this cart/address');
+  unwrap((await session.q(Q.setShipping, { ids: [shipping.id] })).setOrderShippingMethod, 'setOrderShippingMethod');
+  for (const step of parseExtraSteps()) {
+    await session.q(step.query, step.variables || {});
+  }
+  const gen = (await session.q(Q.generate, { id: added.id })).generateRazorpayOrderId;
+  if (!gen.success) throw new Error('generateRazorpayOrderId: ' + gen.errorMessage);
+  if (!String(gen.keyId).startsWith('rzp_test_')) throw new Error('Vendure returned a LIVE Razorpay key — stopping before any checkout opens');
+  run.info(`Tapped Pay: Razorpay order ${gen.razorpayOrderId} for ${money(gen.amount)} (shipping: ${shipping.code})`);
+  return { session, orderId: added.id, orderCode: added.code, amount: gen.amount, currency: gen.currency || 'INR', razorpayOrderId: gen.razorpayOrderId, keyId: gen.keyId };
+}
+
+function parseExtraSteps() {
+  const text = $('#extraSteps').value.trim();
+  if (!text) return [];
+  const steps = JSON.parse(text);
+  if (!Array.isArray(steps)) throw new Error('extra steps must be a JSON array');
+  return steps;
+}
+
+/**
+ * Opens real Razorpay test checkout. Resolves on success ({kind:'paid'}) or close ({kind:'dismissed'}).
+ * Failed attempts are reported through onFailed while the checkout stays open for a retry.
+ */
+function openCheckout(prep, run, { onFailed } = {}) {
+  if (!window.Razorpay) return Promise.reject(new Error('Razorpay checkout.js not loaded'));
+  return new Promise(resolve => {
+    const timeout = Number($('#checkoutTimeout').value);
+    const options = {
+      key: prep.keyId, order_id: prep.razorpayOrderId, amount: prep.amount, currency: prep.currency,
+      name: 'Razorpay test console', description: 'Order ' + prep.orderCode,
+      prefill: { name: $('#fullName').value, contact: $('#phone').value.trim(), email: 'rzp-console@example.com' },
+      notes: { vendureOrderId: String(prep.orderId) },
+      retry: { enabled: true },
+      handler: resp => resolve({ kind: 'paid', resp }),
+      modal: { ondismiss: () => resolve({ kind: 'dismissed' }), confirm_close: false },
+    };
+    if (timeout > 0) options.timeout = timeout;
+    const rzp = new window.Razorpay(options);
+    rzp.on('payment.failed', resp => { log('checkout', 'payment.failed', resp.error); onFailed && onFailed(resp); });
+    run.action('Razorpay checkout is open — follow the step above');
+    rzp.open();
+  });
+}
+
+function appPays(prep, triple) {
+  return prep.session.q(Q.addPayment, { input: { method: 'razorpay-payment', metadata: triple } });
+}
+
+function capturedWebhook(prep, paymentId, event = 'payment.captured', status = 'captured') {
+  return sendWebhook(event, {
+    id: paymentId, order_id: prep.razorpayOrderId, amount: prep.amount, status,
+    notes: { vendureOrderId: String(prep.orderId) }, created_at: Math.floor(Date.now() / 1000),
+  }, state.method.webhookSecret);
+}
+
+async function fetchOrder(orderId) {
+  const { order } = await adminQ(Q.order, { id: orderId });
+  return order;
+}
+
+/** Polls the order (admin view) until done() is true, the time runs out, or Stop is pressed. */
+async function pollOrder(orderId, done, timeoutMs, run, label) {
+  const start = Date.now();
+  let order = null;
+  while (Date.now() - start < timeoutMs && !state.stopRequested) {
+    order = await fetchOrder(orderId);
+    renderInspector(order);
+    if (done(order)) return order;
+    if (run && label) run.status(`${label} (${Math.round((Date.now() - start) / 1000)} s)`);
+    await sleep(1500);
+  }
+  return order;
+}
+
+const isPlaced = o => o && (o.state === 'PaymentSettled' || o.state === 'PaymentAuthorized');
+const paymentsFor = (order, paymentId) => (order?.payments || []).filter(p => p.transactionId === paymentId);
+const isWorkerNeeded = msg => `${msg} — is the worker running? (webhooks are processed by bun run dev:worker)`;
+
+async function cleanupCart(prep, run) {
+  const r = (await prep.session.q(Q.cancel, { id: prep.orderId })).cancelRazorpayPayment;
+  run.info(`Clean-up: cancelRazorpayPayment → ${r.reverted ? 'reverted to AddingItems' : (r.errorMessage || r.state)}`);
+}
+
+// ---------------------------------------------------------------- scenarios
+const SCENARIOS = [
+  {
+    id: 'app-paid', title: 'Pay in the app (normal checkout)',
+    proves: 'Paid in Razorpay, the app reports it → order placed once, amount = what Razorpay took.',
+    needs: { checkout: true },
+    async run(run) {
+      const prep = await prepareCheckout(run);
+      run.action('Pay with UPI success@razorpay (or a test card)');
+      const result = await openCheckout(prep, run);
+      if (result.kind !== 'paid') return run.check('Checkout completed', false, 'checkout was closed without paying');
+      const triple = { razorpayOrderId: result.resp.razorpay_order_id, razorpayPaymentId: result.resp.razorpay_payment_id, razorpaySignature: result.resp.razorpay_signature };
+      state.lastPaid = triple;
+      const app = (await appPays(prep, triple)).addPaymentToOrder;
+      run.check('App call accepted', !!app.state, app.state || app.paymentErrorMessage || app.message);
+      const order = await pollOrder(prep.orderId, isPlaced, 15000, run, 'waiting for order to be placed');
+      const mine = paymentsFor(order, triple.razorpayPaymentId);
+      run.check('Order placed (PaymentSettled / PaymentAuthorized)', isPlaced(order), order?.state);
+      run.check('Exactly one payment recorded for this Razorpay payment', mine.length === 1, `${mine.length} found`);
+      run.check('Recorded amount = amount sent to Razorpay', mine[0]?.amount === prep.amount, `${money(mine[0]?.amount)} vs ${money(prep.amount)}`);
+    },
+  },
+  {
+    id: 'webhook-only', title: 'App closed after paying (webhook only)',
+    proves: 'Customer pays but the app never reports it (killed / no network) → the webhook alone places the order.',
+    needs: { checkout: true, webhook: true },
+    async run(run) {
+      const prep = await prepareCheckout(run);
+      run.action('Pay with UPI success@razorpay — the console will NOT call addPaymentToOrder');
+      const result = await openCheckout(prep, run);
+      if (result.kind !== 'paid') return run.check('Checkout completed', false, 'checkout was closed without paying');
+      const paymentId = result.resp.razorpay_payment_id;
+      const hook = await capturedWebhook(prep, paymentId);
+      run.check('Webhook accepted by Vendure (HTTP 202)', hook.status === 202, `HTTP ${hook.status}`);
+      const order = await pollOrder(prep.orderId, isPlaced, 60000, run, 'waiting for the worker to settle');
+      run.check('Order placed by the webhook', isPlaced(order), isPlaced(order) ? order.state : isWorkerNeeded(order?.state));
+      run.check('Exactly one payment recorded', paymentsFor(order, paymentId).length === 1, `${paymentsFor(order, paymentId).length} found`);
+      const events = await webhookEvents(prep.razorpayOrderId);
+      const mine = events.find(e => e.eventId === hook.eventId);
+      run.check("Stored webhook event is 'processed' with a valid signature", mine?.status === 'processed' && Number(mine?.signatureValid) === 1,
+        mine ? `${mine.status}, signatureValid=${mine.signatureValid}${mine.error ? ', ' + mine.error : ''}` : 'event row not found');
+    },
+  },
+  {
+    id: 'race', title: 'App and webhook at the same instant',
+    proves: 'The double-payment race: both writers fire together → still exactly one payment, order placed once.',
+    needs: { checkout: true, webhook: true },
+    async run(run) {
+      const prep = await prepareCheckout(run);
+      run.action('Pay with UPI success@razorpay');
+      const result = await openCheckout(prep, run);
+      if (result.kind !== 'paid') return run.check('Checkout completed', false, 'checkout was closed without paying');
+      const triple = { razorpayOrderId: result.resp.razorpay_order_id, razorpayPaymentId: result.resp.razorpay_payment_id, razorpaySignature: result.resp.razorpay_signature };
+      state.lastPaid = triple;
+      const [app, hook] = await Promise.all([appPays(prep, triple).catch(e => ({ error: e.message })), capturedWebhook(prep, triple.razorpayPaymentId)]);
+      const a = app.addPaymentToOrder || {};
+      run.info(`App result: ${a.state || a.paymentErrorMessage || a.message || app.error}; webhook HTTP ${hook.status}`);
+      const order = await pollOrder(prep.orderId, o => isPlaced(o) && paymentsFor(o, triple.razorpayPaymentId).length >= 1, 60000, run, 'waiting for both writers');
+      await sleep(4000); // give a losing writer time to (wrongly) add a second payment
+      const final = await fetchOrder(prep.orderId);
+      renderInspector(final);
+      run.check('Order placed', isPlaced(final), final?.state);
+      run.check('Exactly one payment for this Razorpay payment (no double record)', paymentsFor(final, triple.razorpayPaymentId).length === 1,
+        `${paymentsFor(final, triple.razorpayPaymentId).length} found`);
+    },
+  },
+  {
+    id: 'close', title: 'Customer closes the payment page',
+    proves: 'Opened Razorpay, closed it without paying → cart goes back to AddingItems right away.',
+    needs: { checkout: true },
+    async run(run) {
+      const prep = await prepareCheckout(run);
+      run.action('Close the Razorpay window WITHOUT paying (X / back)');
+      const result = await openCheckout(prep, run);
+      if (result.kind === 'paid') return run.check('Closed without paying', false, 'a payment was made — use another scenario');
+      const r = (await prep.session.q(Q.cancel, { id: prep.orderId })).cancelRazorpayPayment;
+      run.info(`cancelRazorpayPayment → ${JSON.stringify(r)}`);
+      if (r.errorMessage === 'Payment in progress') {
+        run.info('Razorpay still has an attempt awaiting approval (you started a UPI payment) — correct to keep the cart; the 5-min cron reverts it once that attempt expires.');
+      }
+      const order = await pollOrder(prep.orderId, o => o?.state === 'AddingItems', 8000, run, 'checking state');
+      run.check('Order back in AddingItems', order?.state === 'AddingItems', order?.state);
+      run.check('No payment recorded', (order?.payments || []).filter(p => p.state === 'Settled' || p.state === 'Authorized').length === 0);
+    },
+  },
+  {
+    id: 'failed-retry', title: 'Payment fails, customer retries on the same page',
+    proves: 'A failed attempt must NOT reset the cart: the retry on the same checkout then places the order.',
+    needs: { checkout: true, webhook: true },
+    async run(run) {
+      const prep = await prepareCheckout(run);
+      let failedSent = false;
+      run.action('First pay with UPI failure@razorpay, then press Retry and pay with success@razorpay');
+      const result = await openCheckout(prep, run, {
+        onFailed: async resp => {
+          const paymentId = resp.error?.metadata?.payment_id;
+          if (!paymentId || failedSent) return;
+          failedSent = true;
+          await capturedWebhook(prep, paymentId, 'payment.failed', 'failed');
+          await sleep(5000);
+          const mid = await fetchOrder(prep.orderId);
+          renderInspector(mid);
+          run.check('After payment.failed the order is still ArrangingPayment (not reverted)', mid?.state === 'ArrangingPayment', mid?.state);
+        },
+      });
+      if (!failedSent) run.info('No failed attempt was seen — use failure@razorpay first to test this path');
+      if (result.kind !== 'paid') return run.check('Retry paid', false, 'checkout closed without a successful retry');
+      const triple = { razorpayOrderId: result.resp.razorpay_order_id, razorpayPaymentId: result.resp.razorpay_payment_id, razorpaySignature: result.resp.razorpay_signature };
+      const app = (await appPays(prep, triple)).addPaymentToOrder;
+      run.check('App call after the retry succeeds', !!app.state, app.state || app.paymentErrorMessage || app.message);
+      const order = await pollOrder(prep.orderId, isPlaced, 15000, run, 'waiting for order to be placed');
+      run.check('Order placed after retry', isPlaced(order), order?.state);
+    },
+  },
+  {
+    id: 'forged-free', title: 'Attack: fake "webhook" payment from the app',
+    proves: 'The old free-order hole: addPaymentToOrder with source:"webhook" must be declined.',
+    needs: {},
+    async run(run) {
+      const prep = await prepareCheckout(run);
+      const r = (await appPays(prep, { source: 'webhook', paymentId: 'pay_console_fake', webhookData: {} })).addPaymentToOrder;
+      run.check('Declined', r.errorCode === 'PAYMENT_DECLINED_ERROR', r.errorCode || r.state);
+      const order = await fetchOrder(prep.orderId);
+      renderInspector(order);
+      run.check('Order NOT placed (still ArrangingPayment)', order?.state === 'ArrangingPayment', order?.state);
+      await cleanupCart(prep, run);
+    },
+  },
+  {
+    id: 'forged-webhook', title: 'Attack: webhook with a wrong signature',
+    proves: "A webhook not signed with a configured secret is refused and stored as 'rejected' — nothing changes.",
+    needs: { webhook: true },
+    async run(run) {
+      const prep = await prepareCheckout(run);
+      const hook = await sendWebhook('payment.captured', {
+        id: 'pay_console_forged', order_id: prep.razorpayOrderId, amount: prep.amount, status: 'captured', notes: { vendureOrderId: String(prep.orderId) },
+      }, 'definitely-not-the-secret-' + Math.random());
+      let mine = null;
+      const start = Date.now();
+      while (!mine?.status || mine.status === 'received') {
+        if (Date.now() - start > 30000 || state.stopRequested) break;
+        await sleep(1500);
+        mine = (await webhookEvents(prep.razorpayOrderId)).find(e => e.eventId === hook.eventId);
+      }
+      run.check("Stored as 'rejected', signatureValid = 0", mine?.status === 'rejected' && Number(mine.signatureValid) === 0,
+        mine ? `${mine.status}, signatureValid=${mine.signatureValid}, ${mine.error || ''}` : isWorkerNeeded('event still not processed'));
+      const order = await fetchOrder(prep.orderId);
+      renderInspector(order);
+      run.check('Order unchanged (ArrangingPayment, no payment)', order?.state === 'ArrangingPayment' && !(order.payments || []).length, order?.state);
+      await cleanupCart(prep, run);
+    },
+  },
+  {
+    id: 'replay', title: "Attack: reuse another order's payment",
+    proves: 'Payment details from an earlier paid order cannot pay for a new cart.',
+    needs: { lastPaid: true },
+    async run(run) {
+      const prep = await prepareCheckout(run);
+      const r = (await appPays(prep, state.lastPaid)).addPaymentToOrder;
+      run.check('Declined', r.errorCode === 'PAYMENT_DECLINED_ERROR', r.paymentErrorMessage || r.errorCode || r.state);
+      run.check("Reason: belongs to another order", /does not belong/i.test(r.paymentErrorMessage || ''), r.paymentErrorMessage);
+      const order = await fetchOrder(prep.orderId);
+      renderInspector(order);
+      run.check('Order NOT placed', order?.state === 'ArrangingPayment', order?.state);
+      await cleanupCart(prep, run);
+    },
+  },
+  {
+    id: 'stranger', title: "Attack: a stranger calls this order's Razorpay endpoints",
+    proves: 'Only the owner (or the guest session holding the cart) may generate / cancel / read the payment.',
+    needs: {},
+    async run(run) {
+      const prep = await prepareCheckout(run);
+      const stranger = new ShopSession(state.channelToken);
+      const gen = (await stranger.q(Q.generate, { id: prep.orderId })).generateRazorpayOrderId;
+      run.check('generateRazorpayOrderId refused', gen.success === false && /unauthor/i.test(gen.errorMessage || ''), gen.errorMessage);
+      const can = (await stranger.q(Q.cancel, { id: prep.orderId })).cancelRazorpayPayment;
+      run.check('cancelRazorpayPayment refused', can.success === false && /unauthor/i.test(can.errorMessage || ''), can.errorMessage);
+      let statusError = '';
+      try { await stranger.q(Q.status, { id: prep.orderId }); } catch (e) { statusError = e.message; }
+      run.check('getRazorpayOrderStatus refused', /forbidden|not currently authorized/i.test(statusError), statusError || 'returned data!');
+      const order = await fetchOrder(prep.orderId);
+      run.check('Order untouched (ArrangingPayment)', order?.state === 'ArrangingPayment', order?.state);
+      await cleanupCart(prep, run);
+    },
+  },
+  {
+    id: 'double-tap', title: 'Customer taps Pay twice',
+    proves: 'A second tap reuses the same Razorpay order instead of creating a new one.',
+    needs: {},
+    async run(run) {
+      const prep = await prepareCheckout(run);
+      const again = (await prep.session.q(Q.generate, { id: prep.orderId })).generateRazorpayOrderId;
+      run.check('Same Razorpay order returned', again.success && again.razorpayOrderId === prep.razorpayOrderId, `${again.razorpayOrderId} vs ${prep.razorpayOrderId}`);
+      await cleanupCart(prep, run);
+    },
+  },
+  {
+    id: 'timeout', title: 'Customer opens payment and walks away (timeout)',
+    proves: 'No close event ever arrives → the 5-minute cron reverts the cart once Razorpay confirms nothing was paid.',
+    needs: { webhook: true },
+    async run(run) {
+      const prep = await prepareCheckout(run);
+      run.info('Not opening checkout: this is the app being killed after tapping Pay. Waiting up to 12 min for the reconciliation cron (worker, every 5 min, Razorpay order must be ≥ 5 min old).');
+      const order = await pollOrder(prep.orderId, o => o?.state === 'AddingItems', 12 * 60 * 1000, run, 'waiting for the cron');
+      run.check('Reverted to AddingItems by the cron', order?.state === 'AddingItems', order?.state === 'AddingItems' ? order.state : isWorkerNeeded(order?.state));
+    },
+  },
+];
+
+function canRun(scenario) {
+  if (!state.adminToken) return 'log in first';
+  if (!state.method) return 'check the Razorpay method first';
+  if (!state.method.isTest) return 'blocked: live Razorpay key';
+  if (scenario.needs.webhook && !state.method.webhookSecret) return 'needs a webhook secret on the method';
+  if (scenario.needs.lastPaid && !state.lastPaid) return 'run a paying scenario first';
+  return '';
+}
+
+/** Per-scenario result list + verdict, kept across re-renders. */
+const results = {};
+
+function renderScenarios() {
+  $('#scenarios').innerHTML = SCENARIOS.map(s => {
+    const blocked = canRun(s);
+    const verdict = results[s.id]?.verdict;
+    const badge = verdict === 'running' ? ['run', 'running…'] : verdict === 'pass' ? ['ok', 'PASS'] : verdict === 'fail' ? ['bad', 'FAIL'] : [blocked ? 'warn' : '', blocked || 'ready'];
+    return `<div class="scenario" id="sc-${s.id}">
+      <div class="scenario-head"><div><h3>${esc(s.title)}</h3><p>${esc(s.proves)}</p></div>
+        <div style="text-align:right"><span class="badge ${badge[0]}">${esc(badge[1])}</span><br>
+        <button class="primary" style="margin-top:6px" data-run="${s.id}" ${blocked || state.running ? 'disabled' : ''}>Run</button></div></div>
+      <ul class="checks" id="checks-${s.id}"></ul></div>`;
+  }).join('');
+  SCENARIOS.forEach(s => { if (results[s.id]) $(`#checks-${s.id}`).replaceWith(results[s.id].list); });
+  document.querySelectorAll('[data-run]').forEach(b => b.addEventListener('click', () => runScenario(b.dataset.run)));
+}
+
+async function runScenario(id) {
+  const scenario = SCENARIOS.find(s => s.id === id);
+  const list = document.createElement('ul');
+  list.className = 'checks';
+  list.id = `checks-${id}`;
+  results[id] = { list, verdict: 'running' };
+  let failures = 0;
+  const add = (cls, text) => { const li = document.createElement('li'); li.className = cls; li.textContent = text; list.appendChild(li); };
+  const run = {
+    check(label, isPass, detail) { if (!isPass) failures++; add(isPass ? 'pass' : 'fail', detail === undefined ? label : `${label} — ${detail}`); },
+    info(text) { add('info', text); },
+    action(text) { add('action', text); },
+    status(text) { $('#runStatus').textContent = text; },
+  };
+  state.running = true;
+  state.stopRequested = false;
+  renderScenarios();
+  $('#stopBtn').disabled = false;
+  log('scenario', 'START ' + scenario.title);
+  try {
+    await scenario.run(run);
+  } catch (e) {
+    failures++;
+    add('fail', 'Stopped with error: ' + e.message);
+  } finally {
+    state.running = false;
+    $('#stopBtn').disabled = true;
+    $('#runStatus').textContent = '';
+    const isPassed = failures === 0 && !!list.querySelector('li.pass');
+    results[id].verdict = isPassed ? 'pass' : 'fail';
+    log('scenario', `${isPassed ? 'PASS' : 'FAIL'} ${scenario.title}`);
+    renderScenarios();
+    if (state.inspectedOrderId) inspect(state.inspectedOrderId);
+  }
+}
+
+// ---------------------------------------------------------------- inspector
+/**
+ * Finds an order by id (number) or code (letters), first in the selected channel,
+ * then in the default channel, which every order also belongs to.
+ */
+async function findOrder(idOrCode, quiet) {
+  const isCode = /[A-Za-z]/.test(idOrCode);
+  for (const channelToken of [state.channelToken, null]) {
+    let id = idOrCode;
+    if (isCode) {
+      const { orders } = await adminQ(Q.orderByCode, { code: idOrCode }, { channelToken, quiet });
+      id = orders.items[0]?.id;
+      if (!id) continue;
+    }
+    const { order } = await adminQ(Q.order, { id }, { channelToken, quiet });
+    if (order) return order;
+  }
+  return null;
+}
+
+async function inspect(idOrCode, { quiet = false } = {}) {
+  state.inspectedOrderId = idOrCode;
+  $('#inspectId').value = idOrCode;
+  try { renderInspector(await findOrder(String(idOrCode), quiet)); } catch (e) { $('#inspector').textContent = 'Could not load order: ' + e.message; }
+}
+
+async function renderInspector(order) {
+  if (!order) { $('#inspector').textContent = 'Order not found in this channel or the default channel. Enter the order ID (number) or the order code.'; return; }
+  const cf = order.customFields || {};
+  const stateCls = isPlaced(order) ? 'ok' : order.state === 'ArrangingPayment' ? 'warn' : order.state === 'AddingItems' ? 'run' : 'bad';
+  const payments = (order.payments || []).map(p => `<tr><td>${esc(p.id)}</td><td>${esc(p.state)}</td><td>${money(p.amount)}</td><td>${esc(p.transactionId || '—')}</td><td>${esc(p.errorMessage || '')}</td></tr>`).join('');
+  const history = (order.history?.items || []).map(h => `<tr><td class="t">${esc(new Date(h.createdAt).toLocaleTimeString())}</td><td>${esc(h.type)}</td><td>${esc(summariseHistory(h.data))}</td></tr>`).join('');
+  let eventsHtml = '<p class="note">No Razorpay order yet.</p>';
+  if (cf.razorpayOrderId) {
+    const events = await webhookEvents(cf.razorpayOrderId).catch(() => []);
+    eventsHtml = events.length
+      ? `<table><tr><th>event</th><th>status</th><th>sig</th><th>error</th><th>at</th></tr>${events.map(e =>
+          `<tr><td>${esc(e.event)}</td><td>${esc(e.status)}</td><td>${Number(e.signatureValid) ? '✓' : '✗'}</td><td>${esc(e.error || '')}</td><td class="t">${esc(new Date(e.createdAt).toLocaleTimeString())}</td></tr>`).join('')}</table>`
+      : '<p class="note">No webhook events stored for this Razorpay order.</p>';
+  }
+  $('#inspector').innerHTML = `
+    <div><span class="state">${esc(order.code)}</span> <span class="badge ${stateCls}">${esc(order.state)}</span> total ${money(order.totalWithTax)}</div>
+    <p class="note">razorpayOrderId <code>${esc(cf.razorpayOrderId || '—')}</code> · razorpayPaymentId <code>${esc(cf.razorpayPaymentId || '—')}</code> · payment window ${cf.isPaymentWindowOpen ? 'open' : 'closed'} (UI hint only)</p>
+    <h3 style="font-size:13px;margin:10px 0 4px">Payments</h3>
+    ${payments ? `<table><tr><th>id</th><th>state</th><th>amount</th><th>transactionId</th><th>error</th></tr>${payments}</table>` : '<p class="note">None.</p>'}
+    <h3 style="font-size:13px;margin:10px 0 4px">Webhook events (stored by the controller)</h3>${eventsHtml}
+    <h3 style="font-size:13px;margin:10px 0 4px">History (newest first)</h3>
+    ${history ? `<table>${history}</table>` : '<p class="note">None.</p>'}`;
+}
+
+function summariseHistory(data) {
+  if (!data) return '';
+  if (data.from && data.to) return `${data.from} → ${data.to}`;
+  if (data.webhookEvent) return `${data.webhookEvent} ${data.status || ''} ${data.paymentId || ''} ${data.amount != null ? money(data.amount) : ''}`;
+  return JSON.stringify(data).slice(0, 140);
+}
+
+// ---------------------------------------------------------------- wiring
+function restoreInputs() {
+  PERSISTED.forEach(id => { const v = store.get(id, null); if (v !== null && $('#' + id)) $('#' + id).value = v; });
+  PERSISTED.forEach(id => $('#' + id)?.addEventListener('change', e => store.set(id, e.target.value)));
+}
+
+$('#loginBtn').addEventListener('click', login);
+$('#channel').addEventListener('change', onChannelChange);
+$('#variant').addEventListener('change', e => store.set('variantId', e.target.value));
+$('#checkMethodBtn').addEventListener('click', checkMethod);
+$('#scanBtn').addEventListener('click', scanChannels);
+$('#loadVariantsBtn').addEventListener('click', loadVariants);
+$('#stopBtn').addEventListener('click', () => { state.stopRequested = true; $('#runStatus').textContent = 'stopping after the current step…'; });
+$('#inspectBtn').addEventListener('click', () => inspect($('#inspectId').value.trim()));
+$('#clearLog').addEventListener('click', () => { $('#log').innerHTML = ''; });
+setInterval(() => {
+  if ($('#autoRefresh').checked && state.inspectedOrderId && state.adminToken && !state.running) inspect(state.inspectedOrderId, { quiet: true });
+}, 3000);
+
+restoreInputs();
+renderScenarios();
+loadConfig();
+setBadge('#workerBadge', 'warn', 'worker: needed for webhook tests');
+</script>
+</body>
+</html>

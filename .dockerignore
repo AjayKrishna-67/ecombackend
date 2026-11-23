@@ -1,0 +1,17 @@
+node_modules
+*.log
+*.md
+test/
+tests/
+coverage/
+.vscode/
+.git/
+Dockerfile
+.dockerignore
+.env
+docs
+.cursor
+.specify
+admin-ui/.angular/
+admin-ui/dist/
+admin-ui/node_modules/

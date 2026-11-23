@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Import/Export</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 24px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 24px;
+            color: #4fc3f7;
+            font-size: 24px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .card {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid #0f3460;
+        }
+        .card h2 {
+            color: #4fc3f7;
+            font-size: 16px;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #0f3460;
+        }
+        .form-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            align-items: end;
+        }
+        .form-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        label {
+            font-size: 12px;
+            color: #90a4ae;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        input, select {
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid #0f3460;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            font-size: 14px;
+            outline: none;
+        }
+        input:focus, select:focus {
+            border-color: #4fc3f7;
+        }
+        input[type="file"] {
+            padding: 8px;
+            cursor: pointer;
+        }
+        input[type="file"]::file-selector-button {
+            background: #0f3460;
+            color: #4fc3f7;
+            border: 1px solid #4fc3f7;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-size: 13px;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background: #4fc3f7;
+            color: #1a1a2e;
+        }
+        button {
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-primary {
+            background: #4fc3f7;
+            color: #1a1a2e;
+        }
+        .btn-primary:hover { background: #81d4fa; }
+        .btn-primary:disabled {
+            background: #37474f;
+            color: #78909c;
+            cursor: not-allowed;
+        }
+        .btn-success {
+            background: #66bb6a;
+            color: #1a1a2e;
+        }
+        .btn-success:hover { background: #81c784; }
+        .btn-outline {
+            background: transparent;
+            color: #4fc3f7;
+            border: 1px solid #4fc3f7;
+        }
+        .btn-outline:hover {
+            background: #4fc3f7;
+            color: #1a1a2e;
+        }
+        .btn-danger {
+            background: #ef5350;
+            color: #fff;
+        }
+        .btn-danger:hover { background: #f44336; }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .status {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: none;
+            word-break: break-word;
+        }
+        .status.show { display: block; }
+        .status.success {
+            background: #1b5e20;
+            border: 1px solid #66bb6a;
+            color: #a5d6a7;
+        }
+        .status.error {
+            background: #b71c1c30;
+            border: 1px solid #ef5350;
+            color: #ef9a9a;
+        }
+        .status.info {
+            background: #0d47a130;
+            border: 1px solid #42a5f5;
+            color: #90caf9;
+        }
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        .result-table th, .result-table td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid #0f3460;
+        }
+        .result-table th {
+            color: #4fc3f7;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-pending { background: #ff980050; color: #ffb74d; }
+        .badge-processing { background: #42a5f530; color: #64b5f6; }
+        .badge-completed { background: #66bb6a30; color: #81c784; }
+        .badge-failed { background: #ef535030; color: #ef9a9a; }
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #4fc3f7;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        a { color: #4fc3f7; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .logged-in-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+        }
+        .logged-in-bar span { color: #81c784; font-size: 13px; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Stock Import / Export</h1>
+
+        <!-- Login -->
+        <div class="card" id="loginCard">
+            <h2>Login</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Username / Email</label>
+                    <input type="text" id="username" value="sriram" />
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" value="superadmin" />
+                </div>
+                <button class="btn-primary" onclick="login()">Login</button>
+            </div>
+            <div id="loginStatus" class="status"></div>
+        </div>
+
+        <!-- Logged-in state (hidden until login) -->
+        <div id="mainContent" class="hidden">
+
+            <!-- Connection info -->
+            <div class="card">
+                <h2>Connection</h2>
+                <div class="logged-in-bar">
+                    <span id="loggedInUser"></span>
+                    <button class="btn-danger" onclick="logout()" style="padding:6px 14px;font-size:12px">Logout</button>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Channel Token</label>
+                        <input type="text" id="channelToken" value="ind-madurai" />
+                    </div>
+                </div>
+                <div class="form-row" style="margin-top:8px">
+                    <button class="btn-outline" onclick="loadLocations()">Load Stock Locations</button>
+                </div>
+                <div id="locationsStatus" class="status"></div>
+            </div>
+
+            <!-- Export & Template -->
+            <div class="card">
+                <h2>Export & Template</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Stock Location (optional for export)</label>
+                        <select id="exportLocationId">
+                            <option value="">All Locations</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="btn-group" style="margin-top:4px">
+                    <button class="btn-success" onclick="exportStock()">Export Stock to Excel</button>
+                    <button class="btn-outline" onclick="generateTemplate()">Generate Import Template</button>
+                </div>
+                <div id="exportStatus" class="status"></div>
+            </div>
+
+            <!-- Import -->
+            <div class="card">
+                <h2>Import Stock from Excel</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Stock Location (required)</label>
+                        <select id="importLocationId">
+                            <option value="">-- Select Location --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Excel File (.xlsx)</label>
+                        <input type="file" id="importFile" accept=".xlsx,.xls" />
+                    </div>
+                    <button class="btn-primary" onclick="importStock()" id="importBtn">Upload & Import</button>
+                </div>
+                <div id="importStatus" class="status"></div>
+            </div>
+
+            <!-- Import Jobs -->
+            <div class="card">
+                <h2>Recent Import Jobs</h2>
+                <button class="btn-outline" onclick="loadJobs()" style="margin-bottom:12px">Refresh Jobs</button>
+                <div id="jobsList"></div>
+                <div id="jobsStatus" class="status"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const API_URL = API_BASE + '/admin-api';
+        let authToken = '';
+
+        function getHeaders() {
+            const headers = { 'Content-Type': 'application/json' };
+            const token = document.getElementById('channelToken').value.trim();
+            if (token) headers['vendure-token'] = token;
+            if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+            return headers;
+        }
+
+        function getChannelHeader() {
+            const headers = {};
+            const token = document.getElementById('channelToken')?.value?.trim();
+            if (token) headers['vendure-token'] = token;
+            if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+            return headers;
+        }
+
+        async function gqlFetch(query, variables = {}) {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({ query, variables }),
+            });
+            return res.json();
+        }
+
+        function showStatus(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            el.className = `status show ${type}`;
+            el.innerHTML = message;
+        }
+
+        function badgeFor(status) {
+            const s = (status || '').toLowerCase();
+            return `<span class="badge badge-${s}">${status}</span>`;
+        }
+
+        // ───── Login / Logout ─────
+
+        async function login() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            if (!username || !password) {
+                showStatus('loginStatus', 'Enter username and password.', 'error');
+                return;
+            }
+            showStatus('loginStatus', '<span class="spinner"></span> Logging in...', 'info');
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: `mutation Login($username: String!, $password: String!) {
+                            login(username: $username, password: $password) {
+                                ... on CurrentUser { id identifier }
+                                ... on InvalidCredentialsError { message }
+                                ... on NativeAuthStrategyError { message }
+                            }
+                        }`,
+                        variables: { username, password },
+                    }),
+                });
+                const data = await res.json();
+                const result = data?.data?.login;
+                if (result?.id) {
+                    // Extract token from vendure-auth-token header
+                    const tokenHeader = res.headers.get('vendure-auth-token');
+                    if (tokenHeader) authToken = tokenHeader;
+                    document.getElementById('loginCard').classList.add('hidden');
+                    document.getElementById('mainContent').classList.remove('hidden');
+                    document.getElementById('loggedInUser').textContent = `Logged in as: ${result.identifier}`;
+                    loadLocations();
+                } else {
+                    showStatus('loginStatus', `Login failed: ${result?.message || JSON.stringify(data.errors || data)}`, 'error');
+                }
+            } catch (err) {
+                showStatus('loginStatus', `Error: ${err.message}`, 'error');
+            }
+        }
+
+        function logout() {
+            authToken = '';
+            document.getElementById('loginCard').classList.remove('hidden');
+            document.getElementById('mainContent').classList.add('hidden');
+            document.getElementById('loginStatus').className = 'status';
+        }
+
+        // ───── Stock Locations ─────
+
+        async function loadLocations() {
+            showStatus('locationsStatus', '<span class="spinner"></span> Loading locations...', 'info');
+            try {
+                const data = await gqlFetch(`query { stockLocationsForChannel { id name } }`);
+                const locations = data?.data?.stockLocationsForChannel || [];
+                if (locations.length === 0) {
+                    showStatus('locationsStatus', 'No stock locations found for this channel.', 'error');
+                    return;
+                }
+                const exportSelect = document.getElementById('exportLocationId');
+                const importSelect = document.getElementById('importLocationId');
+                exportSelect.innerHTML = '<option value="">All Locations</option>';
+                importSelect.innerHTML = '<option value="">-- Select Location --</option>';
+                locations.forEach(loc => {
+                    exportSelect.innerHTML += `<option value="${loc.id}">${loc.name}</option>`;
+                    importSelect.innerHTML += `<option value="${loc.id}">${loc.name}</option>`;
+                });
+                showStatus('locationsStatus', `Loaded ${locations.length} location(s): ${locations.map(l => l.name).join(', ')}`, 'success');
+            } catch (err) {
+                showStatus('locationsStatus', `Error: ${err.message}`, 'error');
+            }
+        }
+
+        // ───── Export ─────
+
+        async function exportStock() {
+            const locationId = document.getElementById('exportLocationId').value;
+            const args = locationId ? `(stockLocationId: "${locationId}")` : '';
+            showStatus('exportStatus', '<span class="spinner"></span> Generating export...', 'info');
+            try {
+                const data = await gqlFetch(`mutation { exportStockToExcel${args} { url fileName } }`);
+                const result = data?.data?.exportStockToExcel;
+                if (result?.url) {
+                    const fullUrl = API_BASE + result.url;
+                    showStatus('exportStatus',
+                        `Export ready: <a href="${fullUrl}" target="_blank" download>${result.fileName}</a>`,
+                        'success');
+                } else {
+                    showStatus('exportStatus', `Error: ${JSON.stringify(data.errors || data)}`, 'error');
+                }
+            } catch (err) {
+                showStatus('exportStatus', `Error: ${err.message}`, 'error');
+            }
+        }
+
+        async function generateTemplate() {
+            const locationId = document.getElementById('exportLocationId').value;
+            const args = locationId ? `(stockLocationId: "${locationId}")` : '';
+            showStatus('exportStatus', '<span class="spinner"></span> Generating template...', 'info');
+            try {
+                const data = await gqlFetch(`mutation { generateStockTemplate${args} { url fileName } }`);
+                const result = data?.data?.generateStockTemplate;
+                if (result?.url) {
+                    const fullUrl = API_BASE + result.url;
+                    showStatus('exportStatus',
+                        `Template ready: <a href="${fullUrl}" target="_blank" download>${result.fileName}</a>`,
+                        'success');
+                } else {
+                    showStatus('exportStatus', `Error: ${JSON.stringify(data.errors || data)}`, 'error');
+                }
+            } catch (err) {
+                showStatus('exportStatus', `Error: ${err.message}`, 'error');
+            }
+        }
+
+        // ───── Import ─────
+
+        async function importStock() {
+            const locationId = document.getElementById('importLocationId').value;
+            const fileInput = document.getElementById('importFile');
+            if (!locationId) {
+                showStatus('importStatus', 'Please select a stock location.', 'error');
+                return;
+            }
+            if (!fileInput.files.length) {
+                showStatus('importStatus', 'Please select an Excel file.', 'error');
+                return;
+            }
+            const file = fileInput.files[0];
+            const btn = document.getElementById('importBtn');
+            btn.disabled = true;
+            btn.textContent = 'Uploading...';
+            showStatus('importStatus', '<span class="spinner"></span> Uploading and processing...', 'info');
+            try {
+                const query = `mutation ($file: Upload!) {
+                    importStockFromExcel(file: $file, stockLocationId: "${locationId}") {
+                        id status totalRows fileName processedRows successCount errorCount summary
+                        errors { row sku field message }
+                    }
+                }`;
+                const formData = new FormData();
+                formData.append('operations', JSON.stringify({ query, variables: { file: null } }));
+                formData.append('map', JSON.stringify({ '0': ['variables.file'] }));
+                formData.append('0', file);
+                const fetchHeaders = { ...getChannelHeader() };
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: fetchHeaders,
+                    body: formData,
+                });
+                const data = await res.json();
+                const job = data?.data?.importStockFromExcel;
+                if (job) {
+                    let html = `Import job <strong>#${job.id}</strong> created. Status: ${badgeFor(job.status)}<br>`;
+                    html += `File: ${job.fileName} | Rows: ${job.totalRows}`;
+                    if (job.summary) html += `<br>${job.summary}`;
+                    if (job.errors?.length > 0) {
+                        html += `<br><br><strong>Errors (${job.errors.length}):</strong><table class="result-table">`;
+                        html += `<tr><th>Row</th><th>SKU</th><th>Field</th><th>Message</th></tr>`;
+                        job.errors.slice(0, 20).forEach(e => {
+                            html += `<tr><td>${e.row}</td><td>${e.sku}</td><td>${e.field}</td><td>${e.message}</td></tr>`;
+                        });
+                        html += `</table>`;
+                        if (job.errors.length > 20) html += `<br>...and ${job.errors.length - 20} more`;
+                    }
+                    showStatus('importStatus', html, job.status === 'FAILED' ? 'error' : 'success');
+                    if (job.status === 'PROCESSING') pollJob(job.id);
+                } else {
+                    showStatus('importStatus', `Error: ${JSON.stringify(data.errors || data)}`, 'error');
+                }
+            } catch (err) {
+                showStatus('importStatus', `Error: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Upload & Import';
+            }
+        }
+
+        async function pollJob(jobId) {
+            const query = `query { stockImportJob(id: "${jobId}") {
+                id status totalRows processedRows successCount errorCount summary
+                errors { row sku field message }
+            }}`;
+            let attempts = 0;
+            const poll = async () => {
+                attempts++;
+                if (attempts > 60) return;
+                const data = await gqlFetch(query);
+                const job = data?.data?.stockImportJob;
+                if (!job) return;
+                if (job.status === 'PROCESSING' || job.status === 'PENDING') {
+                    showStatus('importStatus',
+                        `<span class="spinner"></span> ${badgeFor(job.status)} Progress: ${job.processedRows}/${job.totalRows} rows (${job.successCount} ok, ${job.errorCount} errors)`,
+                        'info');
+                    setTimeout(poll, 2000);
+                } else {
+                    let html = `Job <strong>#${job.id}</strong> ${badgeFor(job.status)}<br>`;
+                    html += job.summary || `${job.successCount} succeeded, ${job.errorCount} failed`;
+                    if (job.errors?.length > 0) {
+                        html += `<br><br><strong>Errors:</strong><table class="result-table">`;
+                        html += `<tr><th>Row</th><th>SKU</th><th>Field</th><th>Message</th></tr>`;
+                        job.errors.slice(0, 20).forEach(e => {
+                            html += `<tr><td>${e.row}</td><td>${e.sku}</td><td>${e.field}</td><td>${e.message}</td></tr>`;
+                        });
+                        html += `</table>`;
+                    }
+                    showStatus('importStatus', html, job.status === 'FAILED' ? 'error' : 'success');
+                }
+            };
+            setTimeout(poll, 2000);
+        }
+
+        // ───── Jobs List ─────
+
+        async function loadJobs() {
+            showStatus('jobsStatus', '<span class="spinner"></span> Loading...', 'info');
+            try {
+                const data = await gqlFetch(`query {
+                    stockImportJobs(take: 10) {
+                        items {
+                            id createdAt fileName status totalRows processedRows
+                            successCount errorCount importType importedBy summary
+                            stockLocationName
+                        }
+                        totalItems
+                    }
+                }`);
+                const list = data?.data?.stockImportJobs;
+                if (!list || list.items.length === 0) {
+                    document.getElementById('jobsList').innerHTML = '<p style="color:#78909c;font-size:13px">No import jobs found.</p>';
+                    document.getElementById('jobsStatus').className = 'status';
+                    return;
+                }
+                let html = `<table class="result-table">
+                    <tr><th>ID</th><th>Date</th><th>File</th><th>Type</th><th>Location</th><th>Status</th><th>Rows</th><th>OK</th><th>Err</th></tr>`;
+                list.items.forEach(j => {
+                    const date = new Date(j.createdAt).toLocaleString();
+                    html += `<tr>
+                        <td>${j.id}</td>
+                        <td style="font-size:11px">${date}</td>
+                        <td>${j.fileName}</td>
+                        <td>${j.importType}</td>
+                        <td>${j.stockLocationName || '-'}</td>
+                        <td>${badgeFor(j.status)}</td>
+                        <td>${j.processedRows}/${j.totalRows}</td>
+                        <td style="color:#81c784">${j.successCount}</td>
+                        <td style="color:#ef9a9a">${j.errorCount}</td>
+                    </tr>`;
+                });
+                html += `</table><p style="color:#78909c;font-size:11px;margin-top:8px">Total: ${list.totalItems} jobs</p>`;
+                document.getElementById('jobsList').innerHTML = html;
+                document.getElementById('jobsStatus').className = 'status';
+            } catch (err) {
+                showStatus('jobsStatus', `Error: ${err.message}`, 'error');
+            }
+        }
+
+        // Allow Enter key to login
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !document.getElementById('loginCard').classList.contains('hidden')) {
+                login();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Razorpay Payment</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .payment-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .alert.error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .alert.success {
+            background: #efe;
+            color: #3c3;
+            border: 1px solid #cfc;
+        }
+
+        .alert.info {
+            background: #eef;
+            color: #33c;
+            border: 1px solid #ccf;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .order-info {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .order-info.show {
+            display: block;
+        }
+
+        .order-info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .order-info-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .order-info-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .order-info-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .payment-status {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .payment-status.show {
+            display: block;
+        }
+
+        .success-icon {
+            width: 60px;
+            height: 60px;
+            background: #4caf50;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: white;
+            font-size: 30px;
+        }
+
+        .error-icon {
+            width: 60px;
+            height: 60px;
+            background: #f44336;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: white;
+            font-size: 30px;
+        }
+
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            margin-left: 8px;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+
+        .copy-btn:active {
+            background: #4457c2;
+        }
+
+        .payment-detail-value {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="payment-container">
+        <div class="header">
+            <h1>💳 Razorpay Payment</h1>
+            <p>Complete your payment securely</p>
+        </div>
+
+        <div id="alert" class="alert"></div>
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+
+        <div id="paymentForm">
+            <div class="form-group">
+                <label for="orderId">Order ID *</label>
+                <input 
+                    type="text" 
+                    id="orderId" 
+                    placeholder="Enter your order ID"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="apiUrl">Vendure API URL *</label>
+                <input 
+                    type="text" 
+                    id="apiUrl" 
+                    placeholder="https://api.yoursite.com/shop-api"
+                    value="http://127.0.0.1:80/shop-api"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="authToken">Auth Token (Optional)</label>
+                <input 
+                    type="text" 
+                    id="authToken" 
+                    placeholder="Bearer token if authenticated"
+                >
+                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                    Note: The order must be active in your session. If payment fails, the webhook will process it automatically.
+                </small>
+            </div>
+
+            <button id="payButton" class="btn" onclick="initiatePayment()">
+                Generate Payment Link
+            </button>
+        </div>
+
+        <div id="orderInfo" class="order-info">
+            <div class="order-info-item">
+                <span class="order-info-label">Order ID:</span>
+                <span class="order-info-value" id="displayOrderId">-</span>
+            </div>
+            <div class="order-info-item">
+                <span class="order-info-label">Amount:</span>
+                <span class="order-info-value" id="displayAmount">-</span>
+            </div>
+            <div class="order-info-item">
+                <span class="order-info-label">Currency:</span>
+                <span class="order-info-value" id="displayCurrency">-</span>
+            </div>
+            <button id="proceedPaymentButton" class="btn" onclick="openRazorpayCheckout()" style="display: none;">
+                Proceed to Payment
+            </button>
+        </div>
+
+        <div id="paymentStatus" class="payment-status">
+            <!-- Payment status will be shown here -->
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        let razorpayConfig = {
+            orderId: null,
+            razorpayOrderId: null,
+            amount: null,
+            currency: null,
+            keyId: null,
+            apiUrl: null,
+            authToken: null,
+            paymentResponse: null // Store payment response details
+        };
+
+        // GraphQL Mutation to generate Razorpay Order ID
+        const GENERATE_RAZORPAY_ORDER_ID = `
+            mutation GenerateRazorpayOrderId($orderId: ID!) {
+                generateRazorpayOrderId(orderId: $orderId) {
+                    success
+                    razorpayOrderId
+                    amount
+                    currency
+                    keyId
+                    errorMessage
+                }
+            }
+        `;
+
+        // GraphQL Mutation to add payment to order
+        const ADD_PAYMENT_TO_ORDER = `
+            mutation AddPaymentToOrder($input: PaymentInput!) {
+                addPaymentToOrder(input: $input) {
+                    id
+                    code
+                    state
+                    totalWithTax
+                }
+            }
+        `;
+
+        // Utility Functions
+        function showAlert(message, type = 'info') {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert ${type} show`;
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 5000);
+        }
+
+        function showLoading(show = true) {
+            document.getElementById('loading').classList.toggle('show', show);
+        }
+
+        function showPaymentForm(show = true) {
+            document.getElementById('paymentForm').style.display = show ? 'block' : 'none';
+        }
+
+        function showOrderInfo(show = true) {
+            document.getElementById('orderInfo').classList.toggle('show', show);
+        }
+
+        function showPaymentStatus(show = true) {
+            document.getElementById('paymentStatus').classList.toggle('show', show);
+        }
+
+        // GraphQL Request Function
+        async function graphqlRequest(query, variables = {}, headers = {}) {
+            const apiUrl = document.getElementById('apiUrl').value || razorpayConfig.apiUrl;
+            if (!apiUrl) {
+                throw new Error('API URL is required');
+            }
+
+            const authToken = document.getElementById('authToken').value || razorpayConfig.authToken;
+            const requestHeaders = {
+                'Content-Type': 'application/json',
+                ...headers
+            };
+
+            if (authToken) {
+                requestHeaders['Authorization'] = authToken.startsWith('Bearer ') 
+                    ? authToken 
+                    : `Bearer ${authToken}`;
+            }
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: requestHeaders,
+                body: JSON.stringify({
+                    query,
+                    variables
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.errors) {
+                throw new Error(result.errors[0].message || 'GraphQL error occurred');
+            }
+
+            return result.data;
+        }
+
+        // Step 1: Generate Razorpay Order ID
+        async function initiatePayment() {
+            try {
+                showLoading(true);
+                showAlert('', 'info');
+
+                const orderId = document.getElementById('orderId').value.trim();
+                if (!orderId) {
+                    throw new Error('Please enter an Order ID');
+                }
+
+                razorpayConfig.orderId = orderId;
+                razorpayConfig.apiUrl = document.getElementById('apiUrl').value.trim();
+                razorpayConfig.authToken = document.getElementById('authToken').value.trim();
+
+                // Call GraphQL mutation
+                const data = await graphqlRequest(
+                    GENERATE_RAZORPAY_ORDER_ID,
+                    { orderId: orderId }
+                );
+
+                const result = data.generateRazorpayOrderId;
+
+                if (!result.success) {
+                    throw new Error(result.errorMessage || 'Failed to generate Razorpay Order ID');
+                }
+
+                // Store configuration
+                razorpayConfig.razorpayOrderId = result.razorpayOrderId;
+                razorpayConfig.amount = result.amount;
+                razorpayConfig.currency = result.currency;
+                razorpayConfig.keyId = result.keyId;
+
+                // Display order info
+                document.getElementById('displayOrderId').textContent = orderId;
+                document.getElementById('displayAmount').textContent = 
+                    `${(result.amount / 100).toFixed(2)} ${result.currency}`;
+                document.getElementById('displayCurrency').textContent = result.currency;
+
+                showPaymentForm(false);
+                showOrderInfo(true);
+                document.getElementById('proceedPaymentButton').style.display = 'block';
+
+                showAlert('Razorpay Order ID generated successfully!', 'success');
+                showLoading(false);
+
+            } catch (error) {
+                showLoading(false);
+                showAlert(error.message || 'An error occurred. Please try again.', 'error');
+                console.error('Error:', error);
+            }
+        }
+
+        // Step 2: Open Razorpay Checkout
+        function openRazorpayCheckout() {
+            try {
+                if (!razorpayConfig.razorpayOrderId || !razorpayConfig.keyId) {
+                    throw new Error('Razorpay configuration is missing');
+                }
+
+                const options = {
+                    key: razorpayConfig.keyId,
+                    amount: razorpayConfig.amount,
+                    currency: razorpayConfig.currency,
+                    name: 'Your Store Name',
+                    description: `Payment for Order ${razorpayConfig.orderId}`,
+                    order_id: razorpayConfig.razorpayOrderId,
+                    handler: async function (response) {
+                        // Payment successful
+                        await handlePaymentSuccess(response);
+                    },
+                    prefill: {
+                        // You can prefill customer details here
+                        // name: 'Customer Name',
+                        // email: 'customer@example.com',
+                        // contact: '9999999999'
+                    },
+                    theme: {
+                        color: '#667eea'
+                    },
+                    modal: {
+                        ondismiss: function() {
+                            showAlert('Payment cancelled by user', 'info');
+                        }
+                    }
+                };
+
+                const razorpay = new Razorpay(options);
+                razorpay.open();
+
+            } catch (error) {
+                showAlert(error.message || 'Failed to open Razorpay checkout', 'error');
+                console.error('Razorpay Error:', error);
+            }
+        }
+
+        // Step 3: Handle Payment Success
+        async function handlePaymentSuccess(response) {
+            // Store payment response for display (store immediately before any async operations)
+            razorpayConfig.paymentResponse = {
+                paymentId: response.razorpay_payment_id,
+                orderId: response.razorpay_order_id,
+                signature: response.razorpay_signature
+            };
+
+            try {
+                showLoading(true);
+                showOrderInfo(false);
+                showPaymentForm(false);
+
+                // Extract payment details
+                const paymentData = {
+                    razorpayPaymentId: response.razorpay_payment_id,
+                    razorpayOrderId: response.razorpay_order_id,
+                    razorpaySignature: response.razorpay_signature
+                };
+
+                // Call Vendure's addPaymentToOrder mutation
+                // Note: This works with the active order in the session
+                // The order must be set as active before calling this
+                const input = {
+                    method: 'razorpay-payment',
+                    metadata: paymentData
+                };
+
+                const data = await graphqlRequest(
+                    ADD_PAYMENT_TO_ORDER,
+                    { 
+                        input: input
+                    }
+                );
+
+                if (data.addPaymentToOrder) {
+                    showPaymentSuccess(data.addPaymentToOrder, razorpayConfig.paymentResponse);
+                } else {
+                    // If addPaymentToOrder fails, the webhook will handle it
+                    // Show success message but note that verification is pending
+                    showAlert('Payment successful! Order verification is being processed via webhook.', 'success');
+                    showPaymentSuccess({
+                        code: razorpayConfig.orderId,
+                        state: 'Processing',
+                        totalWithTax: razorpayConfig.amount
+                    }, razorpayConfig.paymentResponse);
+                }
+
+            } catch (error) {
+                showLoading(false);
+                // Payment was successful at Razorpay, but adding to order failed
+                // The webhook will handle this automatically
+                const errorMsg = error.message || 'Payment verification failed';
+                showAlert(`Payment successful at Razorpay! However, adding payment to order failed: ${errorMsg}. The webhook will process this automatically.`, 'info');
+                
+                // Show success with note about webhook processing
+                showPaymentSuccess({
+                    code: razorpayConfig.orderId,
+                    state: 'Processing via Webhook',
+                    totalWithTax: razorpayConfig.amount
+                }, razorpayConfig.paymentResponse);
+                console.error('Payment Success Handler Error:', error);
+            }
+        }
+
+        // Display Payment Success
+        function showPaymentSuccess(order, paymentDetails = null) {
+            showLoading(false);
+            const statusDiv = document.getElementById('paymentStatus');
+            
+            // Build payment details section if available
+            let paymentDetailsHtml = '';
+            if (paymentDetails) {
+                // Escape quotes for onclick handlers
+                const paymentId = (paymentDetails.paymentId || '').replace(/'/g, "\\'");
+                const orderId = (paymentDetails.orderId || '').replace(/'/g, "\\'");
+                const signature = (paymentDetails.signature || '').replace(/'/g, "\\'");
+                
+                paymentDetailsHtml = `
+                    <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 16px; border-radius: 8px; margin-top: 20px;">
+                        <h3 style="color: #856404; font-size: 16px; margin-bottom: 12px; font-weight: 600;">📋 Payment Details</h3>
+                        <div class="order-info-item" style="margin-bottom: 10px;">
+                            <span class="order-info-label" style="color: #856404;">Payment ID:</span>
+                            <div class="payment-detail-value">
+                                <span class="order-info-value" style="color: #333; word-break: break-all; font-family: monospace; font-size: 12px; flex: 1;">${paymentDetails.paymentId || 'N/A'}</span>
+                                <button class="copy-btn" onclick="copyToClipboard('${paymentId}')" title="Copy Payment ID">Copy</button>
+                            </div>
+                        </div>
+                        <div class="order-info-item" style="margin-bottom: 10px;">
+                            <span class="order-info-label" style="color: #856404;">Razorpay Order ID:</span>
+                            <div class="payment-detail-value">
+                                <span class="order-info-value" style="color: #333; word-break: break-all; font-family: monospace; font-size: 12px; flex: 1;">${paymentDetails.orderId || 'N/A'}</span>
+                                <button class="copy-btn" onclick="copyToClipboard('${orderId}')" title="Copy Order ID">Copy</button>
+                            </div>
+                        </div>
+                        <div class="order-info-item" style="margin-bottom: 0;">
+                            <span class="order-info-label" style="color: #856404;">Signature:</span>
+                            <div class="payment-detail-value">
+                                <span class="order-info-value" style="color: #333; word-break: break-all; font-family: monospace; font-size: 12px; flex: 1;">${paymentDetails.signature || 'N/A'}</span>
+                                <button class="copy-btn" onclick="copyToClipboard('${signature}')" title="Copy Signature">Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            statusDiv.innerHTML = `
+                <div class="success-icon">✓</div>
+                <h2 style="color: #4caf50; margin-bottom: 10px;">Payment Successful!</h2>
+                <p style="color: #666; margin-bottom: 20px;">Your payment has been processed successfully.</p>
+                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-top: 20px;">
+                    <div class="order-info-item">
+                        <span class="order-info-label">Order Code:</span>
+                        <span class="order-info-value">${order.code || 'N/A'}</span>
+                    </div>
+                    <div class="order-info-item">
+                        <span class="order-info-label">Order Status:</span>
+                        <span class="order-info-value">${order.state || 'N/A'}</span>
+                    </div>
+                    <div class="order-info-item">
+                        <span class="order-info-label">Amount Paid:</span>
+                        <span class="order-info-value">${order.totalWithTax ? (order.totalWithTax / 100).toFixed(2) : (razorpayConfig.amount / 100).toFixed(2)}</span>
+                    </div>
+                </div>
+                ${paymentDetailsHtml}
+            `;
+            showPaymentStatus(true);
+        }
+
+        // Display Payment Error
+        function showPaymentError(message) {
+            const statusDiv = document.getElementById('paymentStatus');
+            statusDiv.innerHTML = `
+                <div class="error-icon">✗</div>
+                <h2 style="color: #f44336; margin-bottom: 10px;">Payment Failed</h2>
+                <p style="color: #666; margin-bottom: 20px;">${message}</p>
+                <button class="btn" onclick="location.reload()">Try Again</button>
+            `;
+            showPaymentStatus(true);
+        }
+
+        // Copy to Clipboard Function
+        function copyToClipboard(text) {
+            if (!text || text === 'N/A') {
+                showAlert('Nothing to copy', 'error');
+                return;
+            }
+            
+            navigator.clipboard.writeText(text).then(function() {
+                showAlert('Copied to clipboard!', 'success');
+            }, function(err) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showAlert('Copied to clipboard!', 'success');
+                } catch (err) {
+                    showAlert('Failed to copy. Please copy manually.', 'error');
+                }
+                document.body.removeChild(textArea);
+            });
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('orderId').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                initiatePayment();
+            }
+        });
+
+        // Check if orderId is in URL params
+        window.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const orderId = urlParams.get('orderId');
+            const apiUrl = urlParams.get('apiUrl');
+            const token = urlParams.get('token');
+
+            if (orderId) {
+                document.getElementById('orderId').value = orderId;
+            }
+            if (apiUrl) {
+                document.getElementById('apiUrl').value = apiUrl;
+            }
+            if (token) {
+                document.getElementById('authToken').value = token;
+            }
+        });
+    </script>
+</body>
+</html>
+

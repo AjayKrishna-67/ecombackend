@@ -1,0 +1,320 @@
+<div class="ca-page">
+    <!-- Tab switcher -->
+    <div class="ca-tab-bar">
+        <button
+            type="button"
+            class="ca-btn"
+            [class.ca-btn-primary]="activeTab === 'segments'"
+            [class.ca-btn-outline]="activeTab !== 'segments'"
+            (click)="activeTab = 'segments'"
+        >Segments</button>
+        <button
+            type="button"
+            class="ca-btn"
+            [class.ca-btn-primary]="activeTab === 'abandoned'"
+            [class.ca-btn-outline]="activeTab !== 'abandoned'"
+            (click)="activeTab = 'abandoned'"
+        >Abandoned Cart</button>
+    </div>
+
+    <!-- Abandoned Cart tab -->
+    <div *ngIf="activeTab === 'abandoned' && abandonedSettings" class="ca-abandoned-tab">
+        <div class="ca-config">
+            <div class="ca-config-row">
+                <label class="ca-field">
+                    <input type="checkbox" [(ngModel)]="abandonedSettings.enabled" [disabled]="!canEditAbandoned" />
+                    <span class="ca-field-label">Enabled</span>
+                </label>
+                <span class="ca-muted ca-text-sm">Eligible carts right now: <strong>{{ eligiblePreview }}</strong></span>
+            </div>
+            <div class="ca-threshold-fields">
+                <label class="ca-field">
+                    <span class="ca-field-label">Min order value (₹)</span>
+                    <input
+                        class="ca-input ca-input-narrow"
+                        type="number"
+                        min="0"
+                        placeholder="empty = no sends"
+                        [ngModel]="abandonedSettings.minOrderValueMinor == null ? null : abandonedSettings.minOrderValueMinor / 100"
+                        (ngModelChange)="abandonedSettings.minOrderValueMinor = ($event === null || $event === '') ? null : $event * 100"
+                        [disabled]="!canEditAbandoned"
+                    />
+                </label>
+            </div>
+        </div>
+
+        <div *ngFor="let stage of abandonedSettings.stages; let i = index" class="ca-card ca-abandoned-stage">
+            <div class="ca-card-content">
+                <h4 class="ca-abandoned-stage-title">Stage {{ i + 1 }}</h4>
+                <div class="ca-threshold-fields">
+                    <label class="ca-field">
+                        <span class="ca-field-label">Delay</span>
+                        <input class="ca-input ca-input-narrow" type="number" min="0" [(ngModel)]="stage.delayValue" [disabled]="!canEditAbandoned" />
+                        <select class="ca-select" [(ngModel)]="stage.delayUnit" [disabled]="!canEditAbandoned">
+                            <option value="seconds">seconds</option>
+                            <option value="hours">hours</option>
+                            <option value="days">days</option>
+                        </select>
+                    </label>
+                    <label class="ca-field">
+                        <span class="ca-field-label">Template name</span>
+                        <input class="ca-input" type="text" [(ngModel)]="stage.templateName" [disabled]="!canEditAbandoned" />
+                    </label>
+                    <label class="ca-field">
+                        <span class="ca-field-label">Language</span>
+                        <input class="ca-input ca-input-narrow" type="text" [(ngModel)]="stage.language" [disabled]="!canEditAbandoned" />
+                    </label>
+                </div>
+                <div class="ca-threshold-fields">
+                    <label class="ca-field">
+                        <span class="ca-field-label">Header image URL (optional)</span>
+                        <input type="text" class="ca-input" [(ngModel)]="stage.headerImageUrl" [disabled]="!canEditAbandoned"
+                               placeholder="https://… (only if template has an image header)" />
+                    </label>
+                    <label class="ca-field">
+                        <span class="ca-field-label">Button URL value (optional)</span>
+                        <input type="text" class="ca-input" [(ngModel)]="stage.buttonUrlParam" [disabled]="!canEditAbandoned"
+                               placeholder="dynamic URL suffix for the button" />
+                    </label>
+                </div>
+
+                <div class="ca-body-vars">
+                    <p class="ca-field-label">Body variables (body_1, body_2, …)</p>
+                    <div
+                        *ngFor="let bv of stage.bodyVars; let j = index"
+                        class="ca-body-var-row"
+                    >
+                        <select class="ca-select" [(ngModel)]="bv.kind" [disabled]="!canEditAbandoned">
+                            <option value="static">static</option>
+                            <option value="token">token</option>
+                        </select>
+                        <input
+                            class="ca-input"
+                            type="text"
+                            [(ngModel)]="bv.value"
+                            [placeholder]="bv.kind === 'token' ? '{customerName} / {orderCode} / {cartTotal}' : 'static text'"
+                            [disabled]="!canEditAbandoned"
+                        />
+                        <button class="ca-btn ca-btn-outline ca-btn-sm" type="button" (click)="removeBodyVar(i, j)" [disabled]="!canEditAbandoned">×</button>
+                    </div>
+                    <button class="ca-btn ca-btn-outline ca-btn-sm" type="button" (click)="addBodyVar(i)" [disabled]="!canEditAbandoned">+ Add variable</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="ca-threshold-actions">
+            <button *ngIf="canEditAbandoned" class="ca-btn ca-btn-primary" type="button" (click)="saveAbandonedSettings()">Save</button>
+        </div>
+    </div>
+
+    <!-- Segments tab -->
+    <ng-container *ngIf="activeTab === 'segments'">
+    <ng-container *ngIf="summary$ | async as summaryView">
+        <!-- Recency config banner + threshold editor -->
+        <div class="ca-config" *ngIf="summaryView.summary?.config as config">
+            <div class="ca-config-row">
+                <p class="ca-muted ca-text-sm">
+                    Recency view — Active &le; {{ config.activeWithinDays }}d, At-Risk &le;
+                    {{ config.atRiskUntilDays }}d, Churn beyond. Scoped to the current channel.
+                </p>
+                <button
+                    *ngIf="canEditThresholds && !editingThresholds"
+                    class="ca-btn ca-btn-outline ca-btn-sm"
+                    (click)="beginEditThresholds()"
+                >
+                    Edit thresholds
+                </button>
+            </div>
+            <div class="ca-card" *ngIf="editingThresholds">
+                <div class="ca-card-content ca-threshold-editor">
+                    <div class="ca-threshold-fields">
+                        <label class="ca-field">
+                            <span class="ca-field-label">Active within (days)</span>
+                            <input
+                                class="ca-input ca-input-narrow"
+                                type="number"
+                                min="0"
+                                [value]="activeInput"
+                                (input)="activeInput = $any($event.target).value"
+                            />
+                        </label>
+                        <label class="ca-field">
+                            <span class="ca-field-label">At-Risk until (days)</span>
+                            <input
+                                class="ca-input ca-input-narrow"
+                                type="number"
+                                min="0"
+                                [value]="atRiskInput"
+                                (input)="atRiskInput = $any($event.target).value"
+                            />
+                        </label>
+                        <div class="ca-threshold-actions">
+                            <button
+                                class="ca-btn ca-btn-primary"
+                                (click)="saveThresholds()"
+                                [disabled]="savingThresholds || thresholdError !== null"
+                            >
+                                {{ savingThresholds ? 'Saving…' : 'Save' }}
+                            </button>
+                            <button
+                                class="ca-btn ca-btn-outline"
+                                (click)="cancelEditThresholds()"
+                                [disabled]="savingThresholds"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                    <p class="ca-error" *ngIf="thresholdError && inputsFilled">{{ thresholdError }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Segment summary cards -->
+        <div class="ca-cards">
+            <button
+                *ngFor="let s of segments"
+                type="button"
+                class="ca-card-button"
+                (click)="selectSegment(s.key)"
+            >
+                <div class="ca-card ca-seg-card" [class.ca-seg-selected]="segment === s.key">
+                    <div class="ca-card-content">
+                        <div class="ca-seg-count" [ngClass]="s.toneClass">
+                            {{ summaryView.loading ? '…' : counts(summaryView.summary)[s.key].toLocaleString() }}
+                        </div>
+                        <div class="ca-seg-label">{{ s.label }}</div>
+                    </div>
+                </div>
+            </button>
+        </div>
+
+        <!-- List + actions + pagination -->
+        <ng-container *ngIf="list$ | async as listView">
+            <div class="ca-list-header">
+                <div class="ca-list-title">
+                    {{ segmentLabel(segment) }} · {{ listView.totalItems.toLocaleString() }} customers
+                </div>
+                <div class="ca-actions">
+                    <button
+                        *ngIf="canExport"
+                        class="ca-btn ca-btn-outline"
+                        (click)="exportCsv()"
+                        [disabled]="exporting || listView.totalItems === 0"
+                    >
+                        {{ exporting ? 'Exporting…' : 'Download CSV' }}
+                    </button>
+                    <button
+                        class="ca-btn ca-btn-primary"
+                        (click)="saveAsGroup()"
+                        [disabled]="saving || listView.totalItems === 0"
+                    >
+                        {{
+                            saving
+                                ? (isSynced() ? 'Syncing…' : 'Saving…')
+                                : (isSynced() ? 'Sync group' : 'Save as group')
+                        }}
+                    </button>
+                </div>
+            </div>
+
+            <div class="ca-card">
+                <div class="ca-card-content ca-table-wrap">
+                    <div class="ca-state-center" *ngIf="listView.loading">
+                        <div class="ca-spinner" aria-label="Loading"></div>
+                    </div>
+                    <div class="ca-state-center ca-empty" *ngIf="!listView.loading && listView.items.length === 0">
+                        {{
+                            segment === 'AT_RISK'
+                                ? 'No at-risk customers — retention looks healthy.'
+                                : 'No customers in the ' + segmentLabel(segment) + ' segment.'
+                        }}
+                    </div>
+                    <table class="ca-table" *ngIf="!listView.loading && listView.items.length > 0">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Email</th>
+                                <th>Last order</th>
+                                <th>Days ago</th>
+                                <th>State</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                *ngFor="let row of listView.items"
+                                class="ca-row"
+                                (click)="goToCustomer(row.customerId)"
+                            >
+                                <td class="ca-cell-name">{{ row.firstName }} {{ row.lastName }}</td>
+                                <td class="ca-muted">{{ row.emailAddress }}</td>
+                                <td>{{ formatDate(row.lastOrderAt) }}</td>
+                                <td>{{ formatDaysAgo(row.daysSinceLastOrder) }}</td>
+                                <td>
+                                    <span class="ca-badge" [ngClass]="badgeVariant[row.state]">
+                                        {{ segmentLabel(row.state) }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="ca-pagination">
+                <div class="ca-pagination-inner">
+                    <div class="ca-perpage">
+                        <span class="ca-text-sm ca-medium">Rows per page</span>
+                        <select
+                            class="ca-select"
+                            [value]="pageSize"
+                            (change)="changePageSize($any($event.target).value)"
+                        >
+                            <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+                        </select>
+                    </div>
+                    <div class="ca-pageinfo">Page {{ page }} of {{ totalPages(listView.totalItems) }}</div>
+                    <div class="ca-page-buttons">
+                        <button
+                            class="ca-page-btn ca-page-edge"
+                            type="button"
+                            (click)="setPage(1)"
+                            [disabled]="page <= 1"
+                        >
+                            <span class="ca-sr-only">Go to first page</span>
+                            <clr-icon shape="angle-double" dir="left"></clr-icon>
+                        </button>
+                        <button
+                            class="ca-page-btn"
+                            type="button"
+                            (click)="setPage(page - 1)"
+                            [disabled]="page <= 1"
+                        >
+                            <span class="ca-sr-only">Go to previous page</span>
+                            <clr-icon shape="angle" dir="left"></clr-icon>
+                        </button>
+                        <button
+                            class="ca-page-btn"
+                            type="button"
+                            (click)="setPage(page + 1)"
+                            [disabled]="page >= totalPages(listView.totalItems)"
+                        >
+                            <span class="ca-sr-only">Go to next page</span>
+                            <clr-icon shape="angle" dir="right"></clr-icon>
+                        </button>
+                        <button
+                            class="ca-page-btn ca-page-edge"
+                            type="button"
+                            (click)="setPage(totalPages(listView.totalItems))"
+                            [disabled]="page >= totalPages(listView.totalItems)"
+                        >
+                            <span class="ca-sr-only">Go to last page</span>
+                            <clr-icon shape="angle-double" dir="right"></clr-icon>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </ng-container>
+    </ng-container>
+    </ng-container><!-- /segments tab -->
+</div>

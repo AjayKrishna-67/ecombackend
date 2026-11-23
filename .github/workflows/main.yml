@@ -1,0 +1,313 @@
+# =============================================================================
+# DEVOPS CI/CD PIPELINE - Blue/Green Deployment
+# =============================================================================
+# Trigger: Push to master branch OR manual workflow dispatch
+#
+# Flow:
+#   1. Build Docker image with auto-incremented version tag (devops-v1.0.X)
+#   2. Push to ECR
+#   3. Update Helm values in Git
+#   4. ArgoCD auto-syncs → Argo Rollouts performs Blue/Green deployment
+#
+# Tagging: Each push auto-increments → devops-v1.0.0, devops-v1.0.1, ...
+#
+# Manual Actions:
+#   - deploy: Deploy vendure
+#   - rollback: Rollback to a previous version tag
+#   - promote: Manually promote a blue/green deployment
+# =============================================================================
+
+name: Production Deploy (Blue/Green)
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "helm/**/*.yaml"
+      - "**.md"
+
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to perform"
+        required: true
+        type: choice
+        options:
+          - deploy
+          - rollback
+          - promote
+      rollback_tag:
+        description: "Image tag to rollback to (e.g., devops-v1.0.3) — only for rollback action"
+        required: false
+        type: string
+
+# =============================================================================
+# ENVIRONMENT VARIABLES
+# =============================================================================
+env:
+  ECR_REGISTRY: 149536454380.dkr.ecr.ap-south-1.amazonaws.com
+  ECR_REPO: vendure-prod
+  AWS_REGION: ap-south-1
+  EKS_CLUSTER: vendure-prod-cluster
+  VALUES_FILE: environments/production/vendure-values.yaml
+  IMAGE_KEY: ".vendure.image.tag"
+  TAG_PREFIX: "devops-v"
+
+# Prevent concurrent deployments
+concurrency:
+  group: deploy-vendure
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  # ============================================================
+  # Job 1: Build & Push Docker Image
+  # ============================================================
+  build:
+    name: "Build & Push (vendure)"
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'deploy')
+    outputs:
+      image_tag: ${{ steps.version.outputs.new_tag }}
+
+    steps:
+      - name: Checkout code with full tag history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      # ── Configure AWS ────────────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ── Calculate next version (ECR is source of truth) ─────
+      - name: Calculate next version
+        id: version
+        run: |
+          LATEST_TAG=$(aws ecr describe-images \
+            --repository-name ${{ env.ECR_REPO }} \
+            --region ${{ env.AWS_REGION }} \
+            --query "imageDetails[].imageTags[]" \
+            --output text 2>/dev/null \
+            | tr '\t' '\n' \
+            | grep "^${{ env.TAG_PREFIX }}" \
+            | sort -t. -k3 -n \
+            | tail -1)
+
+          if [[ -z "$LATEST_TAG" ]]; then
+            NEW_TAG="${{ env.TAG_PREFIX }}1.0.0"
+          else
+            VERSION=${LATEST_TAG#${{ env.TAG_PREFIX }}}
+            MAJOR=$(echo $VERSION | cut -d. -f1)
+            MINOR=$(echo $VERSION | cut -d. -f2)
+            PATCH=$(echo $VERSION | cut -d. -f3)
+            NEW_PATCH=$((PATCH + 1))
+            NEW_TAG="${{ env.TAG_PREFIX }}${MAJOR}.${MINOR}.${NEW_PATCH}"
+          fi
+
+          echo "new_tag=${NEW_TAG}" >> $GITHUB_OUTPUT
+          echo "Previous: ${LATEST_TAG:-none} → New: ${NEW_TAG}"
+
+      # ── Build & push Docker image (x86 only) ───────────────
+      - name: Build and push Docker image
+        run: |
+          IMAGE_TAG=${{ steps.version.outputs.new_tag }}
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          docker build \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.created=${BUILD_DATE}" \
+            --label "org.opencontainers.image.version=${IMAGE_TAG}" \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --label "app.name=vendure" \
+            --label "app.branch=master" \
+            -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO }}:${IMAGE_TAG} \
+            .
+
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO }}:${IMAGE_TAG}
+
+      # ── Push summary ─────────────────────────────────────────
+      - name: Publish summary
+        run: |
+          IMAGE_TAG=${{ steps.version.outputs.new_tag }}
+
+          echo "### Docker Image Published (x86/amd64)" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| App | \`vendure\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`master\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Registry | \`${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`${IMAGE_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Platform | \`linux/amd64\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | Pushed |" >> $GITHUB_STEP_SUMMARY
+
+      # ── Create Git tag ───────────────────────────────────────
+      - name: Create git tag
+        run: |
+          IMAGE_TAG=${{ steps.version.outputs.new_tag }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a ${IMAGE_TAG} -m "Release ${IMAGE_TAG} — vendure (master) from commit ${{ github.sha }}"
+          git push origin ${IMAGE_TAG}
+
+  # ============================================================
+  # Job 2: Update Helm Values → ArgoCD Auto-Syncs
+  # ============================================================
+  deploy:
+    name: "Deploy (vendure)"
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout platform-gitops (ArgoCD source)
+        uses: actions/checkout@v4
+        with:
+          repository: kaaikani/platform-gitops
+          token: ${{ secrets.GH_PAT }}
+          ref: main
+
+      - name: Install yq
+        uses: mikefarah/yq@v4
+
+      - name: Update image tag in Helm values
+        run: |
+          IMAGE_TAG=${{ needs.build.outputs.image_tag }}
+
+          CURRENT_TAG=$(yq "${{ env.IMAGE_KEY }}" ${{ env.VALUES_FILE }})
+          yq -i "${{ env.IMAGE_KEY }} = \"${IMAGE_TAG}\"" ${{ env.VALUES_FILE }}
+
+          echo "Updated ${{ env.VALUES_FILE }}: ${CURRENT_TAG} → ${IMAGE_TAG}"
+
+      - name: Commit and push to platform-gitops (ArgoCD reads from here)
+        run: |
+          IMAGE_TAG=${{ needs.build.outputs.image_tag }}
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ env.VALUES_FILE }}
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "deploy(vendure): ${IMAGE_TAG}"
+          git pull --rebase origin main
+          git push origin main
+
+          echo "### Deployment Triggered" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| App | \`vendure\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`master\` (ArgoCD) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`${IMAGE_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Strategy | Blue/Green (Argo Rollouts) |" >> $GITHUB_STEP_SUMMARY
+          echo "| ArgoCD Sync | ~3 minutes |" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================
+  # Job 3: Rollback (manual workflow_dispatch)
+  # ============================================================
+  rollback:
+    name: "Rollback (vendure)"
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.action == 'rollback'
+
+    steps:
+      - name: Validate rollback tag
+        run: |
+          if [[ -z "${{ github.event.inputs.rollback_tag }}" ]]; then
+            echo "ERROR: rollback_tag is required for rollback action"
+            exit 1
+          fi
+
+      - name: Checkout platform-gitops (ArgoCD source)
+        uses: actions/checkout@v4
+        with:
+          repository: kaaikani/platform-gitops
+          token: ${{ secrets.GH_PAT }}
+          ref: main
+
+      - name: Install yq
+        uses: mikefarah/yq@v4
+
+      - name: Rollback to previous version
+        run: |
+          ROLLBACK_TAG=${{ github.event.inputs.rollback_tag }}
+
+          CURRENT_TAG=$(yq "${{ env.IMAGE_KEY }}" ${{ env.VALUES_FILE }})
+          yq -i "${{ env.IMAGE_KEY }} = \"${ROLLBACK_TAG}\"" ${{ env.VALUES_FILE }}
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ env.VALUES_FILE }}
+          git diff --staged --quiet && echo "Already on this version" && exit 0
+          git commit -m "rollback(vendure): ${CURRENT_TAG} → ${ROLLBACK_TAG}"
+          git pull --rebase origin main
+          git push origin main
+
+          echo "### Rollback Complete" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| App | \`vendure\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| From | \`${CURRENT_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| To | \`${ROLLBACK_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Strategy | ArgoCD auto-sync (~3 min) |" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================
+  # Job 4: Promote Blue/Green (manual approval)
+  # ============================================================
+  promote:
+    name: "Promote Blue/Green (vendure)"
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.action == 'promote'
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install kubectl & Argo Rollouts plugin
+        run: |
+          # kubectl
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+          # Argo Rollouts kubectl plugin
+          curl -LO https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-amd64
+          chmod +x kubectl-argo-rollouts-linux-amd64
+          sudo mv kubectl-argo-rollouts-linux-amd64 /usr/local/bin/kubectl-argo-rollouts
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+
+      - name: Promote rollout
+        run: |
+          echo "Promoting vendure in vendure-production..."
+          kubectl argo rollouts promote vendure -n vendure-production
+          kubectl argo rollouts status vendure -n vendure-production --timeout 300s
+
+          echo "### Blue/Green Promotion Complete" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| App | \`vendure\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Namespace | \`vendure-production\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | Promoted to active |" >> $GITHUB_STEP_SUMMARY

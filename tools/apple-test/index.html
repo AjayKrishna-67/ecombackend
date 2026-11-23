@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="appleid-signin-client-id" content="com.kaaikani.kaaikani">
+  <meta name="appleid-signin-scope" content="email">
+  <meta name="appleid-signin-redirect-uri" content="https://kaaikani.co.in">
+  <meta name="appleid-signin-use-popup" content="true">
+  <title>Apple Sign In — Token Generator</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 60px auto; padding: 0 20px; background: #f5f5f7; }
+    h2 { color: #1d1d1f; }
+    .card { background: #fff; border-radius: 12px; padding: 24px; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    textarea { width: 100%; font-family: monospace; font-size: 12px; border: 1px solid #ccc; border-radius: 8px; padding: 12px; box-sizing: border-box; }
+    button { background: #007aff; color: #fff; border: none; border-radius: 8px; padding: 10px 20px; cursor: pointer; font-size: 14px; margin-top: 10px; }
+    button:hover { background: #005ecb; }
+    .status { padding: 10px 14px; border-radius: 8px; margin-top: 12px; font-size: 13px; }
+    .success { background: #d4edda; color: #155724; }
+    .error   { background: #f8d7da; color: #721c24; }
+    pre { background: #f0f0f0; border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto; }
+    label { font-size: 13px; font-weight: 600; color: #555; display: block; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <h2>🍎 Apple Sign In — Token Generator</h2>
+  <p style="color:#666;font-size:14px;">Sign in with Apple to get an identity token for testing the Vendure Shop API.</p>
+
+  <div class="card">
+    <label>Step 1: Sign in with Apple</label>
+    <div id="appleid-signin" data-color="black" data-border="true" data-type="sign in" style="width:200px;"></div>
+    <div id="status"></div>
+  </div>
+
+  <div class="card" id="token-card" style="display:none;">
+    <label>Step 2: Copy the Identity Token</label>
+    <textarea id="token-output" rows="8" readonly placeholder="Token will appear here..."></textarea>
+    <button onclick="copyToken()">Copy Token</button>
+    <div id="copy-status"></div>
+
+    <br><br>
+    <label>Decoded Payload (for reference)</label>
+    <pre id="payload-output"></pre>
+  </div>
+
+  <div class="card">
+    <label>Step 3: Use in GraphQL Playground</label>
+    <pre>POST http://localhost:80/shop-api
+
+Header:
+  vendure-token: d7476xruz8xpzmkjsa6l
+
+Mutation:
+  mutation {
+    authenticate(input: {
+      apple: { token: "&lt;paste token here&gt;" }
+    }) {
+      ... on CurrentUser { id identifier }
+      ... on InvalidCredentialsError { errorCode message }
+    }
+  }</pre>
+  </div>
+
+  <script type="text/javascript" src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js"></script>
+  <script>
+    document.addEventListener('AppleIDSignInOnSuccess', (e) => {
+      const token = e.detail.authorization.id_token;
+      document.getElementById('token-card').style.display = 'block';
+      document.getElementById('token-output').value = token;
+      document.getElementById('status').innerHTML = '<div class="status success">✅ Token received!</div>';
+
+      // Decode payload for display
+      try {
+        const parts = token.split('.');
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        document.getElementById('payload-output').textContent = JSON.stringify(payload, null, 2);
+      } catch (err) {
+        document.getElementById('payload-output').textContent = 'Could not decode payload: ' + err;
+      }
+    });
+
+    document.addEventListener('AppleIDSignInOnFailure', (e) => {
+      document.getElementById('status').innerHTML =
+        '<div class="status error">❌ Error: ' + (e.detail.error || JSON.stringify(e.detail)) + '</div>';
+    });
+
+    function copyToken() {
+      const ta = document.getElementById('token-output');
+      ta.select();
+      document.execCommand('copy');
+      document.getElementById('copy-status').innerHTML = '<div class="status success">✅ Copied to clipboard!</div>';
+      setTimeout(() => document.getElementById('copy-status').innerHTML = '', 2000);
+    }
+  </script>
+</body>
+</html>

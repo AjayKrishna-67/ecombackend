@@ -1,0 +1,48 @@
+<div class="referral-section">
+    <div class="referral-header">
+        <h4>
+            <clr-icon shape="share" class="referral-icon"></clr-icon>
+            Referrals
+            <span class="badge" *ngIf="referralsTotalItems$ | async as total">{{ total }}</span>
+        </h4>
+        <div class="referral-actions">
+            <button class="btn btn-sm btn-icon" (click)="refresh()" title="Refresh">
+                <clr-icon shape="refresh"></clr-icon>
+            </button>
+        </div>
+    </div>
+
+    <div class="referral-content">
+        <ng-container *ngIf="referrals$ | async as referrals">
+            <div *ngIf="referrals.length === 0" class="empty-state">
+                <clr-icon shape="share" size="48"></clr-icon>
+                <p>No referrals found for this customer.</p>
+            </div>
+
+            <vdr-data-table
+                *ngIf="referrals.length > 0"
+                [items]="referrals"
+                [itemsPerPage]="referralsItemsPerPage$ | async"
+                [totalItems]="referralsTotalItems$ | async"
+                [currentPage]="referralsCurrentPage$ | async"
+                (pageChange)="setReferralsPageNumber($event)"
+                (itemsPerPageChange)="setReferralsItemsPerPage($event)"
+            >
+                <ng-template let-referral="item">
+                    <td class="left align-middle">
+                        <a [routerLink]="['/customer/customers', referral.referredCustomer?.id]">
+                            {{ referral.referredCustomer?.firstName }} {{ referral.referredCustomer?.lastName }}
+                        </a>
+                    </td>
+                    <td class="left align-middle">
+                        <span class="status-badge" [ngClass]="getStatusClass(referral.status)">
+                            {{ referral.status }}
+                        </span>
+                    </td>
+                    <td class="left align-middle">{{ referral.points }}</td>
+                    <td class="left align-middle">{{ referral.createdAt | localeDate:'medium' }}</td>
+                </ng-template>
+            </vdr-data-table>
+        </ng-container>
+    </div>
+</div>

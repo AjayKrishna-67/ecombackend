@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.kaaikani.kaaikani",
+      "sha256_cert_fingerprints": [
+        "81:73:00:8B:9D:C0:16:57:0C:2B:61:CF:04:62:A9:FC:61:B9:D1:18:BC:CA:5D:E3:57:05:DA:06:59:3B:32:02"
+      ]
+    }
+  }
+]

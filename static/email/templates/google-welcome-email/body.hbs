@@ -1,0 +1,40 @@
+{{> header title="Welcome to South Mithai!" brand=brand }}
+
+<mj-section background-color="{{ brand.backgroundColor }}">
+    <mj-column>
+        <mj-text color="#525252" font-size="20px" font-weight="bold">
+            Welcome, {{ customer.firstName }}!
+        </mj-text>
+        
+        <mj-text color="#525252">
+            Thank you for joining {{ brand.name }}! We're excited to have you as part of our community.
+        </mj-text>
+
+        <mj-text color="#525252">
+            Your account has been successfully created using Google Sign-In. You can now:
+        </mj-text>
+
+        <mj-text color="#525252">
+            <ul>
+                <li>Browse our wide selection of authentic South Indian sweets</li><br/>
+                <li>Place orders and track them easily</li><br/>
+                <li>Manage your account and preferences</li><br/>
+                <li>Enjoy exclusive deals and offers</li>
+            </ul>
+        </mj-text>
+
+        <mj-button font-family="Helvetica"
+                   background-color="{{ brand.ctaColor }}"
+                   color="white"
+                   href="{{ shopUrl }}">
+            Start Shopping
+        </mj-button>
+
+        <mj-text color="#525252">
+            If you have any questions, feel free to reach out to our support team.
+        </mj-text>
+    </mj-column>
+</mj-section>
+
+{{> footer brand=brand }}
+

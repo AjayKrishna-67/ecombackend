@@ -1,0 +1,56 @@
+/* Target the <vdr-chip> that has the class "CancellationRequested".
+   Then target the inner ".wrapper" div to override the default yellow.
+*/
+vdr-chip.CancellationRequested .wrapper {
+    background-color: #ff6a00 !important;
+    /* Orange Background */
+    color: white !important;
+    /* White Text */
+    border-color: #ff6a00 !important;
+    /* Orange Border */
+}
+
+/* Catch-all version (Safety Net): 
+   In case the class name varies slightly, this finds any chip containing "ancellation".
+*/
+vdr-chip[class*="cancellation"] .wrapper {
+    background-color: #ff6a00 !important;
+    color: white !important;
+    border-color: #ff6a00 !important;
+}
+
+/* Optional: Fix text color specifically if it gets overridden */
+vdr-chip.CancellationRequested .chip-label {
+    color: white !important;
+}
+
+/* OutforDelivery state — Yellow warning badge (matching Vendure UI style).
+   The FulfillmentStateLabelComponent only maps Pending/Shipped/Delivered/Cancelled
+   to colorType classes (warning/success/error). Custom states like OutforDelivery
+   get no class, so we target the wrapper without any known color class.
+*/
+vdr-fulfillment-state-label vdr-chip .wrapper:not(.warning):not(.success):not(.error) {
+    background-color: var(--color-chip-warning-bg) !important;
+    color: var(--color-chip-warning-text) !important;
+    border-color: var(--color-chip-warning-border) !important;
+}
+
+/* Hide the raw latitude/longitude rows that vdr-formatted-address renders for
+   Address custom fields (the map pin is shown by the OrderLocationMapPlugin
+   card instead). Custom field rows render in config order: latitude and
+   longitude come from vendure-config-custom-fields.ts and are always the
+   first two; 'area' (appended by PostalCodePlugin) and any later fields are
+   re-shown by the sibling rule below. */
+vdr-formatted-address li.custom-field {
+    display: none;
+}
+
+vdr-formatted-address li.custom-field ~ li.custom-field ~ li.custom-field {
+    display: revert;
+}
+/* Take Away plugin: fields whose input is the no-op suppressed component
+   (storeLongitude, storeMapUrl — both written by the Store Location Pin map)
+   should not render their label/description blocks at all. */
+vdr-custom-field-control:has(take-away-suppressed-input) {
+    display: none;
+}

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product Import - Vendure Admin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; padding: 40px 20px; }
+  .container { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+  .subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 32px; }
+  .card { background: #1a1d2e; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #f1f5f9; }
+  label { display: block; font-size: 13px; font-weight: 500; color: #94a3b8; margin-bottom: 6px; }
+  input[type="text"], input[type="password"] { width: 100%; padding: 10px 12px; background: #0f1117; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; color: #e2e8f0; font-size: 14px; outline: none; }
+  input:focus { border-color: rgba(99,102,241,0.5); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+  .row { display: flex; gap: 12px; margin-bottom: 16px; }
+  .row > div { flex: 1; }
+  .file-drop { border: 2px dashed rgba(99,102,241,0.3); border-radius: 12px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
+  .file-drop:hover, .file-drop.dragover { border-color: rgba(99,102,241,0.6); background: rgba(99,102,241,0.05); }
+  .file-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .file-drop .icon { font-size: 36px; margin-bottom: 8px; }
+  .file-drop p { color: #94a3b8; font-size: 14px; }
+  .file-drop .filename { color: #a5b4fc; font-weight: 600; font-size: 15px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-login { background: #22c55e; color: #fff; width: 100%; justify-content: center; }
+  .btn-login:hover { background: #16a34a; }
+  .actions { display: flex; justify-content: flex-end; margin-top: 20px; gap: 12px; }
+  .progress-container { margin-top: 16px; }
+  .progress-bar { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; background: #6366f1; border-radius: 4px; transition: width 0.3s; }
+  .status { margin-top: 12px; font-size: 14px; }
+  .status.success { color: #4ade80; }
+  .status.error { color: #f87171; }
+  .status.info { color: #94a3b8; }
+  .result-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+  .result-item { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 12px; text-align: center; }
+  .result-item .num { font-size: 28px; font-weight: 700; }
+  .result-item .lbl { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+  .result-item.created .num { color: #4ade80; }
+  .result-item.updated .num { color: #60a5fa; }
+  .result-item.errors .num { color: #f87171; }
+  .error-list { margin-top: 16px; max-height: 300px; overflow-y: auto; }
+  .error-list table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .error-list th { text-align: left; padding: 8px; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .error-list td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .error-list td.err-msg { color: #f87171; }
+  .hidden { display: none; }
+  .mode-tabs { display: flex; gap: 0; margin-bottom: 20px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+  .mode-tab { flex: 1; padding: 12px; text-align: center; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; background: rgba(255,255,255,0.03); color: #94a3b8; border: none; }
+  .mode-tab.active { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+  .mode-tab:hover:not(.active) { background: rgba(255,255,255,0.06); }
+  .mode-desc { font-size: 13px; color: #64748b; margin-bottom: 16px; padding: 10px 14px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid rgba(99,102,241,0.4); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Product Import</h1>
+  <p class="subtitle">Import new products via CSV or update existing products from an exported Excel file.</p>
+
+  <!-- Step 1: Login -->
+  <div id="loginSection" class="card">
+    <h2>Admin Login</h2>
+    <div class="row">
+      <div>
+        <label>Username</label>
+        <input type="text" id="username" value="sriram" />
+      </div>
+      <div>
+        <label>Password</label>
+        <input type="password" id="password" value="superadmin" />
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Admin API URL</label>
+        <input type="text" id="apiUrl" />
+      </div>
+    </div>
+    <button class="btn btn-login" onclick="login()">Login</button>
+    <p id="loginStatus" class="status" style="margin-top:12px;"></p>
+  </div>
+
+  <!-- Step 2: Upload -->
+  <div id="uploadSection" class="card hidden">
+    <h2>Choose Import Mode</h2>
+
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tabUpdate" onclick="setMode('update')">Update Existing (Excel)</button>
+      <button class="mode-tab" id="tabCreate" onclick="setMode('create')">Create New (CSV)</button>
+    </div>
+
+    <div id="descUpdate" class="mode-desc">
+      Upload the exported Excel file (.xlsx) after editing. Updates existing products/variants by SKU match. Supports price, stock, custom fields, product stock, and channel updates.
+    </div>
+    <div id="descCreate" class="mode-desc hidden">
+      Upload a Vendure-format CSV to create new products. See <a href="https://docs.vendure.io/guides/developer-guide/importing-data/" target="_blank" style="color:#a5b4fc;">CSV format docs</a>.
+    </div>
+
+    <div class="file-drop" id="fileDrop">
+      <input type="file" id="fileInput" onchange="onFileChange(event)" />
+      <div class="icon" id="fileIcon">📊</div>
+      <p id="fileLabel">Drop an Excel (.xlsx) file here or click to browse</p>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="importBtn" disabled onclick="importFile()">
+        Update Products
+      </button>
+    </div>
+
+    <div id="progressSection" class="progress-container hidden">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <p id="progressStatus" class="status info">Uploading...</p>
+    </div>
+  </div>
+
+  <!-- Step 3: Result -->
+  <div id="resultSection" class="card hidden">
+    <h2>Import Result</h2>
+    <div class="result-grid" id="resultGrid"></div>
+    <div class="error-list" id="errorList"></div>
+    <div class="actions" style="margin-top:16px;">
+      <button class="btn btn-primary" onclick="resetUpload()">Import Another File</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let authToken = '';
+let selectedFile = null;
+let importMode = 'update'; // 'update' or 'create'
+
+(function() {
+  document.getElementById('apiUrl').value = location.origin + '/admin-api';
+})();
+
+function setMode(mode) {
+  importMode = mode;
+  document.getElementById('tabUpdate').className = 'mode-tab' + (mode === 'update' ? ' active' : '');
+  document.getElementById('tabCreate').className = 'mode-tab' + (mode === 'create' ? ' active' : '');
+  document.getElementById('descUpdate').className = mode === 'update' ? 'mode-desc' : 'mode-desc hidden';
+  document.getElementById('descCreate').className = mode === 'create' ? 'mode-desc' : 'mode-desc hidden';
+  const fi = document.getElementById('fileInput');
+  fi.accept = mode === 'update' ? '.xlsx,.xls' : '.csv';
+  document.getElementById('fileIcon').textContent = mode === 'update' ? '📊' : '📄';
+  document.getElementById('fileLabel').textContent = mode === 'update'
+    ? 'Drop an Excel (.xlsx) file here or click to browse'
+    : 'Drop a CSV file here or click to browse';
+  document.getElementById('importBtn').textContent = mode === 'update' ? 'Update Products' : 'Import Products';
+  selectedFile = null;
+  document.getElementById('importBtn').disabled = true;
+  fi.value = '';
+}
+
+// Drag & drop
+const drop = document.getElementById('fileDrop');
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+drop.addEventListener('drop', e => {
+  e.preventDefault();
+  drop.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) selectFile(file);
+});
+
+function onFileChange(e) {
+  const file = e.target.files[0];
+  if (file) selectFile(file);
+}
+
+function selectFile(file) {
+  selectedFile = file;
+  document.getElementById('fileLabel').innerHTML = '<span class="filename">' + file.name + '</span> (' + (file.size/1024).toFixed(1) + ' KB)';
+  document.getElementById('importBtn').disabled = false;
+}
+
+async function login() {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  const apiUrl = document.getElementById('apiUrl').value;
+  const statusEl = document.getElementById('loginStatus');
+  statusEl.className = 'status info';
+  statusEl.textContent = 'Logging in...';
+  try {
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation Login($username: String!, $password: String!) { login(username: $username, password: $password, rememberMe: true) { ... on CurrentUser { id identifier } ... on InvalidCredentialsError { errorCode message } ... on NativeAuthStrategyError { errorCode message } } }`,
+        variables: { username, password }
+      }),
+      credentials: 'include',
+    });
+    const json = await res.json();
+    const token = res.headers.get('vendure-auth-token');
+    const result = json.data?.login;
+    if (result?.id) {
+      authToken = token || '';
+      statusEl.className = 'status success';
+      statusEl.textContent = 'Logged in as ' + result.identifier;
+      document.getElementById('loginSection').classList.add('hidden');
+      document.getElementById('uploadSection').classList.remove('hidden');
+    } else {
+      statusEl.className = 'status error';
+      statusEl.textContent = result?.message || 'Login failed';
+    }
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Error: ' + err.message;
+  }
+}
+
+async function importFile() {
+  if (!selectedFile) return;
+  if (importMode === 'update') {
+    await doExcelUpdate();
+  } else {
+    await doCsvImport();
+  }
+}
+
+async function doExcelUpdate() {
+  const apiUrl = document.getElementById('apiUrl').value;
+  const btn = document.getElementById('importBtn');
+  const progressSection = document.getElementById('progressSection');
+  const progressFill = document.getElementById('progressFill');
+  const progressStatus = document.getElementById('progressStatus');
+  btn.disabled = true;
+  progressSection.classList.remove('hidden');
+  progressFill.style.width = '30%';
+  progressStatus.className = 'status info';
+  progressStatus.textContent = 'Uploading and updating...';
+
+  const formData = new FormData();
+  formData.append('operations', JSON.stringify({
+    query: `mutation UpdateFromExcel($file: Upload!) { updateProductsFromExcel(file: $file) { success totalRows created updated skipped errorCount errors { row field message } } }`,
+    variables: { file: null }
+  }));
+  formData.append('map', JSON.stringify({ '0': ['variables.file'] }));
+  formData.append('0', selectedFile);
+
+  try {
+    const headers = {};
+    if (authToken) headers['vendure-auth-token'] = authToken;
+    const res = await fetch(apiUrl, { method: 'POST', headers, body: formData, credentials: 'include' });
+    progressFill.style.width = '90%';
+    const json = await res.json();
+    const result = json.data?.updateProductsFromExcel;
+    if (!result) {
+      progressStatus.className = 'status error';
+      progressStatus.textContent = 'Failed: ' + (json.errors?.[0]?.message || 'Unknown error');
+      btn.disabled = false;
+      return;
+    }
+    progressFill.style.width = '100%';
+    progressStatus.className = 'status success';
+    progressStatus.textContent = 'Done!';
+    showResult(result);
+  } catch (err) {
+    progressFill.style.width = '100%';
+    progressStatus.className = 'status error';
+    progressStatus.textContent = 'Error: ' + err.message;
+    btn.disabled = false;
+  }
+}
+
+async function doCsvImport() {
+  const apiUrl = document.getElementById('apiUrl').value;
+  const btn = document.getElementById('importBtn');
+  const progressSection = document.getElementById('progressSection');
+  const progressFill = document.getElementById('progressFill');
+  const progressStatus = document.getElementById('progressStatus');
+  btn.disabled = true;
+  progressSection.classList.remove('hidden');
+  progressFill.style.width = '30%';
+  progressStatus.className = 'status info';
+  progressStatus.textContent = 'Uploading CSV and creating products...';
+
+  const formData = new FormData();
+  formData.append('operations', JSON.stringify({
+    query: `mutation ImportCSV($csvFile: Upload!) { importProducts(csvFile: $csvFile) { errors processed imported } }`,
+    variables: { csvFile: null }
+  }));
+  formData.append('map', JSON.stringify({ '0': ['variables.csvFile'] }));
+  formData.append('0', selectedFile);
+
+  try {
+    const headers = {};
+    if (authToken) headers['vendure-auth-token'] = authToken;
+    const res = await fetch(apiUrl, { method: 'POST', headers, body: formData, credentials: 'include' });
+    progressFill.style.width = '90%';
+    const json = await res.json();
+    const result = json.data?.importProducts;
+    if (!result) {
+      progressStatus.className = 'status error';
+      progressStatus.textContent = 'Failed: ' + (json.errors?.[0]?.message || 'Unknown error');
+      btn.disabled = false;
+      return;
+    }
+    progressFill.style.width = '100%';
+    progressStatus.className = 'status success';
+    progressStatus.textContent = 'Done!';
+    const errorCount = result.errors?.length || 0;
+    showResult({
+      totalRows: result.processed || 0,
+      created: result.imported || 0,
+      updated: 0,
+      skipped: (result.processed || 0) - (result.imported || 0) - errorCount,
+      errorCount,
+      errors: (result.errors || []).map((msg, i) => ({ row: i + 1, field: '', message: msg })),
+    });
+  } catch (err) {
+    progressFill.style.width = '100%';
+    progressStatus.className = 'status error';
+    progressStatus.textContent = 'Error: ' + err.message;
+    btn.disabled = false;
+  }
+}
+
+function showResult(result) {
+  document.getElementById('uploadSection').classList.add('hidden');
+  document.getElementById('resultSection').classList.remove('hidden');
+  const grid = document.getElementById('resultGrid');
+  grid.innerHTML = `
+    <div class="result-item"><div class="num">${result.totalRows}</div><div class="lbl">Total Rows</div></div>
+    <div class="result-item created"><div class="num">${result.created}</div><div class="lbl">Created</div></div>
+    <div class="result-item updated"><div class="num">${result.updated}</div><div class="lbl">Updated</div></div>
+    <div class="result-item errors"><div class="num">${result.errorCount}</div><div class="lbl">Errors</div></div>
+  `;
+  const errorListEl = document.getElementById('errorList');
+  if (result.errors?.length > 0) {
+    let html = '<table><thead><tr><th>Row</th><th>Field</th><th>Error</th></tr></thead><tbody>';
+    result.errors.slice(0, 100).forEach(err => {
+      html += `<tr><td>${err.row}</td><td>${esc(err.field)}</td><td class="err-msg">${esc(err.message)}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    if (result.errors.length > 100) html += `<p style="color:#94a3b8;font-size:12px;margin-top:8px;">Showing 100 of ${result.errors.length}</p>`;
+    errorListEl.innerHTML = html;
+  } else {
+    errorListEl.innerHTML = '';
+  }
+}
+
+function resetUpload() {
+  selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  setMode(importMode);
+  document.getElementById('progressSection').classList.add('hidden');
+  document.getElementById('resultSection').classList.add('hidden');
+  document.getElementById('uploadSection').classList.remove('hidden');
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+</script>
+</body>
+</html>
